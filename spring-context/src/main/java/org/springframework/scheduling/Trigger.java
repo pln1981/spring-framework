@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,10 @@
 
 package org.springframework.scheduling;
 
+import java.time.Instant;
 import java.util.Date;
+
+import org.springframework.lang.Nullable;
 
 /**
  * Common interface for trigger objects that determine the next execution time
@@ -35,7 +38,24 @@ public interface Trigger {
 	 * and last completion time
 	 * @return the next execution time as defined by the trigger,
 	 * or {@code null} if the trigger won't fire anymore
+	 * @deprecated as of 6.0, in favor of {@link #nextExecution(TriggerContext)}
 	 */
-	Date nextExecutionTime(TriggerContext triggerContext);
+	@Deprecated(since = "6.0")
+	@Nullable
+	default Date nextExecutionTime(TriggerContext triggerContext) {
+		Instant instant = nextExecution(triggerContext);
+		return instant != null ? Date.from(instant) : null;
+	}
+
+	/**
+	 * Determine the next execution time according to the given trigger context.
+	 * @param triggerContext context object encapsulating last execution times
+	 * and last completion time
+	 * @return the next execution time as defined by the trigger,
+	 * or {@code null} if the trigger won't fire anymore
+	 * @since 6.0
+	 */
+	@Nullable
+	Instant nextExecution(TriggerContext triggerContext);
 
 }

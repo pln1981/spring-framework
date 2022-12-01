@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.convert.converter.ConverterFactory;
 import org.springframework.core.convert.converter.ConverterRegistry;
 import org.springframework.core.convert.converter.GenericConverter;
+import org.springframework.lang.Nullable;
 
 /**
  * A factory for common {@link org.springframework.core.convert.ConversionService}
@@ -32,7 +33,11 @@ import org.springframework.core.convert.converter.GenericConverter;
  * @author Chris Beams
  * @since 3.0
  */
-public abstract class ConversionServiceFactory {
+public final class ConversionServiceFactory {
+
+	private ConversionServiceFactory() {
+	}
+
 
 	/**
 	 * Register the given Converter objects with the given target ConverterRegistry.
@@ -40,17 +45,17 @@ public abstract class ConversionServiceFactory {
 	 * {@link ConverterFactory}, or {@link GenericConverter}
 	 * @param registry the target registry
 	 */
-	public static void registerConverters(Set<?> converters, ConverterRegistry registry) {
+	public static void registerConverters(@Nullable Set<?> converters, ConverterRegistry registry) {
 		if (converters != null) {
-			for (Object converter : converters) {
-				if (converter instanceof GenericConverter) {
-					registry.addConverter((GenericConverter) converter);
+			for (Object candidate : converters) {
+				if (candidate instanceof GenericConverter genericConverter) {
+					registry.addConverter(genericConverter);
 				}
-				else if (converter instanceof Converter<?, ?>) {
-					registry.addConverter((Converter<?, ?>) converter);
+				else if (candidate instanceof Converter<?, ?> converter) {
+					registry.addConverter(converter);
 				}
-				else if (converter instanceof ConverterFactory<?, ?>) {
-					registry.addConverterFactory((ConverterFactory<?, ?>) converter);
+				else if (candidate instanceof ConverterFactory<?, ?> converterFactory) {
+					registry.addConverterFactory(converterFactory);
 				}
 				else {
 					throw new IllegalArgumentException("Each converter object must implement one of the " +

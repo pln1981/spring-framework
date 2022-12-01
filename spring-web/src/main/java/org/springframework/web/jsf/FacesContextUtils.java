@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,10 @@
 
 package org.springframework.web.jsf;
 
-import javax.faces.context.ExternalContext;
-import javax.faces.context.FacesContext;
+import jakarta.faces.context.ExternalContext;
+import jakarta.faces.context.FacesContext;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.util.WebUtils;
@@ -46,6 +47,7 @@ public abstract class FacesContextUtils {
 	 * @return the root WebApplicationContext for this web app, or {@code null} if none
 	 * @see org.springframework.web.context.WebApplicationContext#ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE
 	 */
+	@Nullable
 	public static WebApplicationContext getWebApplicationContext(FacesContext fc) {
 		Assert.notNull(fc, "FacesContext must not be null");
 		Object attr = fc.getExternalContext().getApplicationMap().get(
@@ -53,16 +55,16 @@ public abstract class FacesContextUtils {
 		if (attr == null) {
 			return null;
 		}
-		if (attr instanceof RuntimeException) {
-			throw (RuntimeException) attr;
+		if (attr instanceof RuntimeException runtimeException) {
+			throw runtimeException;
 		}
-		if (attr instanceof Error) {
-			throw (Error) attr;
+		if (attr instanceof Error error) {
+			throw error;
 		}
-		if (!(attr instanceof WebApplicationContext)) {
+		if (!(attr instanceof WebApplicationContext wac)) {
 			throw new IllegalStateException("Root context attribute is not of type WebApplicationContext: " + attr);
 		}
-		return (WebApplicationContext) attr;
+		return wac;
 	}
 
 	/**
@@ -103,6 +105,7 @@ public abstract class FacesContextUtils {
 	 * @see org.springframework.web.util.WebUtils#SESSION_MUTEX_ATTRIBUTE
 	 * @see org.springframework.web.util.HttpSessionMutexListener
 	 */
+	@Nullable
 	public static Object getSessionMutex(FacesContext fc) {
 		Assert.notNull(fc, "FacesContext must not be null");
 		ExternalContext ec = fc.getExternalContext();

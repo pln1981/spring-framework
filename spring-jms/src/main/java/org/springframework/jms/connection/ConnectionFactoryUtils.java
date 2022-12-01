@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,26 +16,26 @@
 
 package org.springframework.jms.connection;
 
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.QueueConnection;
-import javax.jms.QueueConnectionFactory;
-import javax.jms.QueueSession;
-import javax.jms.Session;
-import javax.jms.TopicConnection;
-import javax.jms.TopicConnectionFactory;
-import javax.jms.TopicSession;
-
+import jakarta.jms.Connection;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.JMSException;
+import jakarta.jms.QueueConnection;
+import jakarta.jms.QueueConnectionFactory;
+import jakarta.jms.QueueSession;
+import jakarta.jms.Session;
+import jakarta.jms.TopicConnection;
+import jakarta.jms.TopicConnectionFactory;
+import jakarta.jms.TopicSession;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.lang.Nullable;
 import org.springframework.transaction.support.ResourceHolderSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.Assert;
 
 /**
- * Helper class for managing a JMS {@link javax.jms.ConnectionFactory}, in particular
+ * Helper class for managing a JMS {@link jakarta.jms.ConnectionFactory}, in particular
  * for obtaining transactional JMS resources for a given ConnectionFactory.
  *
  * <p>Mainly for internal use within the framework. Used by
@@ -64,7 +64,7 @@ public abstract class ConnectionFactoryUtils {
 	 * @see SmartConnectionFactory#shouldStop
 	 * @see org.springframework.jms.support.JmsUtils#closeConnection
 	 */
-	public static void releaseConnection(Connection con, ConnectionFactory cf, boolean started) {
+	public static void releaseConnection(@Nullable Connection con, @Nullable ConnectionFactory cf, boolean started) {
 		if (con == null) {
 			return;
 		}
@@ -109,7 +109,7 @@ public abstract class ConnectionFactoryUtils {
 	 * @param cf the JMS ConnectionFactory that the Session originated from
 	 * @return whether the Session is transactional
 	 */
-	public static boolean isSessionTransactional(Session session, ConnectionFactory cf) {
+	public static boolean isSessionTransactional(@Nullable Session session, @Nullable ConnectionFactory cf) {
 		if (session == null || cf == null) {
 			return false;
 		}
@@ -131,16 +131,19 @@ public abstract class ConnectionFactoryUtils {
 	 * @return the transactional Session, or {@code null} if none found
 	 * @throws JMSException in case of JMS failure
 	 */
-	public static Session getTransactionalSession(
-			final ConnectionFactory cf, final Connection existingCon, final boolean synchedLocalTransactionAllowed)
+	@Nullable
+	public static Session getTransactionalSession(final ConnectionFactory cf,
+			@Nullable final Connection existingCon, final boolean synchedLocalTransactionAllowed)
 			throws JMSException {
 
 		return doGetTransactionalSession(cf, new ResourceFactory() {
 			@Override
+			@Nullable
 			public Session getSession(JmsResourceHolder holder) {
 				return holder.getSession(Session.class, existingCon);
 			}
 			@Override
+			@Nullable
 			public Connection getConnection(JmsResourceHolder holder) {
 				return (existingCon != null ? existingCon : holder.getConnection());
 			}
@@ -173,16 +176,19 @@ public abstract class ConnectionFactoryUtils {
 	 * @return the transactional Session, or {@code null} if none found
 	 * @throws JMSException in case of JMS failure
 	 */
-	public static QueueSession getTransactionalQueueSession(
-			final QueueConnectionFactory cf, final QueueConnection existingCon, final boolean synchedLocalTransactionAllowed)
+	@Nullable
+	public static QueueSession getTransactionalQueueSession(final QueueConnectionFactory cf,
+			@Nullable final QueueConnection existingCon, final boolean synchedLocalTransactionAllowed)
 			throws JMSException {
 
 		return (QueueSession) doGetTransactionalSession(cf, new ResourceFactory() {
 			@Override
+			@Nullable
 			public Session getSession(JmsResourceHolder holder) {
 				return holder.getSession(QueueSession.class, existingCon);
 			}
 			@Override
+			@Nullable
 			public Connection getConnection(JmsResourceHolder holder) {
 				return (existingCon != null ? existingCon : holder.getConnection(QueueConnection.class));
 			}
@@ -215,16 +221,19 @@ public abstract class ConnectionFactoryUtils {
 	 * @return the transactional Session, or {@code null} if none found
 	 * @throws JMSException in case of JMS failure
 	 */
-	public static TopicSession getTransactionalTopicSession(
-			final TopicConnectionFactory cf, final TopicConnection existingCon, final boolean synchedLocalTransactionAllowed)
+	@Nullable
+	public static TopicSession getTransactionalTopicSession(final TopicConnectionFactory cf,
+			@Nullable final TopicConnection existingCon, final boolean synchedLocalTransactionAllowed)
 			throws JMSException {
 
 		return (TopicSession) doGetTransactionalSession(cf, new ResourceFactory() {
 			@Override
+			@Nullable
 			public Session getSession(JmsResourceHolder holder) {
 				return holder.getSession(TopicSession.class, existingCon);
 			}
 			@Override
+			@Nullable
 			public Connection getConnection(JmsResourceHolder holder) {
 				return (existingCon != null ? existingCon : holder.getConnection(TopicConnection.class));
 			}
@@ -234,7 +243,8 @@ public abstract class ConnectionFactoryUtils {
 			}
 			@Override
 			public Session createSession(Connection con) throws JMSException {
-				return ((TopicConnection) con).createTopicSession(synchedLocalTransactionAllowed, Session.AUTO_ACKNOWLEDGE);
+				return ((TopicConnection) con).createTopicSession(
+						synchedLocalTransactionAllowed, Session.AUTO_ACKNOWLEDGE);
 			}
 			@Override
 			public boolean isSynchedLocalTransactionAllowed() {
@@ -253,8 +263,9 @@ public abstract class ConnectionFactoryUtils {
 	 * JMS resources
 	 * @return the transactional Session, or {@code null} if none found
 	 * @throws JMSException in case of JMS failure
-	 * @see #doGetTransactionalSession(javax.jms.ConnectionFactory, ResourceFactory, boolean)
+	 * @see #doGetTransactionalSession(jakarta.jms.ConnectionFactory, ResourceFactory, boolean)
 	 */
+	@Nullable
 	public static Session doGetTransactionalSession(
 			ConnectionFactory connectionFactory, ResourceFactory resourceFactory) throws JMSException {
 
@@ -273,6 +284,7 @@ public abstract class ConnectionFactoryUtils {
 	 * @return the transactional Session, or {@code null} if none found
 	 * @throws JMSException in case of JMS failure
 	 */
+	@Nullable
 	public static Session doGetTransactionalSession(
 			ConnectionFactory connectionFactory, ResourceFactory resourceFactory, boolean startConnection)
 			throws JMSException {
@@ -339,8 +351,8 @@ public abstract class ConnectionFactoryUtils {
 		}
 		if (resourceHolderToUse != resourceHolder) {
 			TransactionSynchronizationManager.registerSynchronization(
-					new JmsResourceSynchronization(
-							resourceHolderToUse, connectionFactory, resourceFactory.isSynchedLocalTransactionAllowed()));
+					new JmsResourceSynchronization(resourceHolderToUse, connectionFactory,
+							resourceFactory.isSynchedLocalTransactionAllowed()));
 			resourceHolderToUse.setSynchronizedWithTransaction(true);
 			TransactionSynchronizationManager.bindResource(connectionFactory, resourceHolderToUse);
 		}
@@ -360,6 +372,7 @@ public abstract class ConnectionFactoryUtils {
 		 * @return an appropriate Session fetched from the holder,
 		 * or {@code null} if none found
 		 */
+		@Nullable
 		Session getSession(JmsResourceHolder holder);
 
 		/**
@@ -368,6 +381,7 @@ public abstract class ConnectionFactoryUtils {
 		 * @return an appropriate Connection fetched from the holder,
 		 * or {@code null} if none found
 		 */
+		@Nullable
 		Connection getConnection(JmsResourceHolder holder);
 
 		/**

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,14 +17,13 @@
 package org.springframework.jmx.export.assembler;
 
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 
 /**
@@ -57,11 +56,13 @@ public class MethodNameBasedMBeanInfoAssembler extends AbstractConfigurableMBean
 	/**
 	 * Stores the set of method names to use for creating the management interface.
 	 */
+	@Nullable
 	private Set<String> managedMethods;
 
 	/**
 	 * Stores the mappings of bean keys to an array of method names.
 	 */
+	@Nullable
 	private Map<String, Set<String>> methodMappings;
 
 
@@ -72,8 +73,8 @@ public class MethodNameBasedMBeanInfoAssembler extends AbstractConfigurableMBean
 	 * @param methodNames an array of method names indicating the methods to use
 	 * @see #setMethodMappings
 	 */
-	public void setManagedMethods(String[] methodNames) {
-		this.managedMethods = new HashSet<String>(Arrays.asList(methodNames));
+	public void setManagedMethods(String... methodNames) {
+		this.managedMethods = Set.of(methodNames);
 	}
 
 	/**
@@ -81,14 +82,14 @@ public class MethodNameBasedMBeanInfoAssembler extends AbstractConfigurableMBean
 	 * The property key should match the bean key and the property value should match
 	 * the list of method names. When searching for method names for a bean, Spring
 	 * will check these mappings first.
-	 * @param mappings the mappins of bean keys to method names
+	 * @param mappings the mappings of bean keys to method names
 	 */
 	public void setMethodMappings(Properties mappings) {
-		this.methodMappings = new HashMap<String, Set<String>>();
+		this.methodMappings = new HashMap<>();
 		for (Enumeration<?> en = mappings.keys(); en.hasMoreElements();) {
 			String beanKey = (String) en.nextElement();
 			String[] methodNames = StringUtils.commaDelimitedListToStringArray(mappings.getProperty(beanKey));
-			this.methodMappings.put(beanKey, new HashSet<String>(Arrays.asList(methodNames)));
+			this.methodMappings.put(beanKey, Set.of(methodNames));
 		}
 	}
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,19 +20,21 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 import groovy.text.Template;
 import groovy.text.markup.MarkupTemplateEngine;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextException;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 import org.springframework.web.servlet.view.AbstractTemplateView;
-import org.springframework.web.util.NestedServletException;
 
 /**
  * An {@link AbstractTemplateView} subclass based on Groovy XML/XHTML markup templates.
@@ -44,34 +46,24 @@ import org.springframework.web.util.NestedServletException;
  * @since 4.1
  * @see GroovyMarkupViewResolver
  * @see GroovyMarkupConfigurer
- * @see <a href="http://groovy-lang.org/templating.html#_the_markuptemplateengine">
- *     Groovy Markup Template engine documentation</a>
+ * @see <a href="https://groovy-lang.org/templating.html#_the_markuptemplateengine">
+ * Groovy Markup Template engine documentation</a>
  */
 public class GroovyMarkupView extends AbstractTemplateView {
 
+	@Nullable
 	private MarkupTemplateEngine engine;
 
 
 	/**
 	 * Set the MarkupTemplateEngine to use in this view.
-	 * <p>If not set, the engine is auto-detected by looking up up a single
+	 * <p>If not set, the engine is auto-detected by looking up a single
 	 * {@link GroovyMarkupConfig} bean in the web application context and using
 	 * it to obtain the configured {@code MarkupTemplateEngine} instance.
 	 * @see GroovyMarkupConfig
 	 */
 	public void setTemplateEngine(MarkupTemplateEngine engine) {
 		this.engine = engine;
-	}
-
-	@Override
-	public boolean checkResource(Locale locale) throws Exception {
-		try {
-			this.engine.resolveTemplate(getUrl());
-		}
-		catch (IOException exception) {
-			return false;
-		}
-		return true;
 	}
 
 	/**
@@ -96,7 +88,7 @@ public class GroovyMarkupView extends AbstractTemplateView {
 	 */
 	protected MarkupTemplateEngine autodetectMarkupTemplateEngine() throws BeansException {
 		try {
-			return BeanFactoryUtils.beanOfTypeIncludingAncestors(getApplicationContext(),
+			return BeanFactoryUtils.beanOfTypeIncludingAncestors(obtainApplicationContext(),
 					GroovyMarkupConfig.class, true, false).getTemplateEngine();
 		}
 		catch (NoSuchBeanDefinitionException ex) {
@@ -108,10 +100,25 @@ public class GroovyMarkupView extends AbstractTemplateView {
 
 
 	@Override
+	public boolean checkResource(Locale locale) throws Exception {
+		Assert.state(this.engine != null, "No MarkupTemplateEngine set");
+		try {
+			this.engine.resolveTemplate(getUrl());
+		}
+		catch (IOException ex) {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
 	protected void renderMergedTemplateModel(Map<String, Object> model,
 			HttpServletRequest request, HttpServletResponse response) throws Exception {
 
-		Template template = getTemplate(getUrl());
+		String url = getUrl();
+		Assert.state(url != null, "'url' not set");
+
+		Template template = getTemplate(url);
 		template.make(model).writeTo(new BufferedWriter(response.getWriter()));
 	}
 
@@ -120,13 +127,15 @@ public class GroovyMarkupView extends AbstractTemplateView {
 	 * for the given view URL.
 	 */
 	protected Template getTemplate(String viewUrl) throws Exception {
+		Assert.state(this.engine != null, "No MarkupTemplateEngine set");
 		try {
 			return this.engine.createTemplateByPath(viewUrl);
 		}
 		catch (ClassNotFoundException ex) {
 			Throwable cause = (ex.getCause() != null ? ex.getCause() : ex);
-			throw new NestedServletException("Could not find class while rendering Groovy Markup view with name '" +
-					getUrl() + "': " + ex.getMessage() +  "'", cause);
+			throw new ServletException(
+					"Could not find class while rendering Groovy Markup view with name '" +
+					getUrl() + "': " + ex.getMessage() + "'", cause);
 		}
 	}
 

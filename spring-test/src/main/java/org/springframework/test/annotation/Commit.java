@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,11 +17,11 @@
 package org.springframework.test.annotation;
 
 import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.*;
-import static java.lang.annotation.RetentionPolicy.*;
 
 /**
  * {@code @Commit} is a test annotation that is used to indicate that a
@@ -34,8 +34,8 @@ import static java.lang.annotation.RetentionPolicy.*;
  *
  * <p>When declared as a class-level annotation, {@code @Commit} defines
  * the default commit semantics for all test methods within the test class
- * hierarchy. When declared as a method-level annotation, {@code @Commit}
- * defines commit semantics for the specific test method, potentially
+ * hierarchy or nested class hierarchy. When declared as a method-level annotation,
+ * {@code @Commit} defines commit semantics for the specific test method, potentially
  * overriding class-level default commit or rollback semantics.
  *
  * <p><strong>Warning</strong>: {@code @Commit} can be used as direct
@@ -44,14 +44,20 @@ import static java.lang.annotation.RetentionPolicy.*;
  * {@code @Commit} and {@code @Rollback} on the same test method or on the
  * same test class is unsupported and may lead to unpredictable results.
  *
+ * <p>As of Spring Framework 5.3, this annotation will be inherited from an
+ * enclosing test class by default. See
+ * {@link org.springframework.test.context.NestedTestConfiguration @NestedTestConfiguration}
+ * for details.
+ *
  * @author Sam Brannen
  * @since 4.2
  * @see Rollback
  * @see org.springframework.test.context.transaction.TransactionalTestExecutionListener
  */
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
 @Documented
-@Retention(RUNTIME)
-@Target({ TYPE, METHOD })
+@Inherited
 @Rollback(false)
 public @interface Commit {
 }

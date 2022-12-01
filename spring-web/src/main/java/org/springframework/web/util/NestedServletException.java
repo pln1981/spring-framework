@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,10 @@
 
 package org.springframework.web.util;
 
-import javax.servlet.ServletException;
+import jakarta.servlet.ServletException;
 
 import org.springframework.core.NestedExceptionUtils;
+import org.springframework.lang.Nullable;
 
 /**
  * Subclass of {@link ServletException} that properly handles a root cause in terms
@@ -36,13 +37,14 @@ import org.springframework.core.NestedExceptionUtils;
  * @author Juergen Hoeller
  * @since 1.2.5
  * @see #getMessage
- * @see #printStackTrace
  * @see org.springframework.core.NestedCheckedException
  * @see org.springframework.core.NestedRuntimeException
+ * @deprecated as of 6.0, in favor of standard {@link ServletException} nesting
  */
+@Deprecated(since = "6.0")
 public class NestedServletException extends ServletException {
 
-	/** Use serialVersionUID from Spring 1.2 for interoperability */
+	/** Use serialVersionUID from Spring 1.2 for interoperability. */
 	private static final long serialVersionUID = -5292377985529381145L;
 
 	static {
@@ -66,23 +68,8 @@ public class NestedServletException extends ServletException {
 	 * @param msg the detail message
 	 * @param cause the nested exception
 	 */
-	public NestedServletException(String msg, Throwable cause) {
-		super(msg, cause);
-		// Set JDK 1.4 exception chain cause if not done by ServletException class already
-		// (this differs between Servlet API versions).
-		if (getCause() == null && cause!=null) {
-			initCause(cause);
-		}
-	}
-
-
-	/**
-	 * Return the detail message, including the message from the nested exception
-	 * if there is one.
-	 */
-	@Override
-	public String getMessage() {
-		return NestedExceptionUtils.buildMessage(super.getMessage(), getCause());
+	public NestedServletException(@Nullable String msg, @Nullable Throwable cause) {
+		super(NestedExceptionUtils.buildMessage(msg, cause), cause);
 	}
 
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,24 +21,27 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
- * Abstract class that adapts a {@link Future} parameterized over S into a {@code
- * Future} parameterized over T. All methods are delegated to the adaptee, where {@link
- * #get()} and {@link #get(long, TimeUnit)} call {@link #adapt(Object)} on the adaptee's
- * result.
+ * Abstract class that adapts a {@link Future} parameterized over S into a {@code Future}
+ * parameterized over T. All methods are delegated to the adaptee, where {@link #get()}
+ * and {@link #get(long, TimeUnit)} call {@link #adapt(Object)} on the adaptee's result.
  *
  * @author Arjen Poutsma
  * @since 4.0
  * @param <T> the type of this {@code Future}
  * @param <S> the type of the adaptee's {@code Future}
+ * @deprecated as of 6.0, with no concrete replacement
  */
+@Deprecated(since = "6.0")
 public abstract class FutureAdapter<T, S> implements Future<T> {
 
 	private final Future<S> adaptee;
 
-	private Object result = null;
+	@Nullable
+	private Object result;
 
 	private State state = State.NEW;
 
@@ -50,7 +53,7 @@ public abstract class FutureAdapter<T, S> implements Future<T> {
 	 * @param adaptee the future to delegate to
 	 */
 	protected FutureAdapter(Future<S> adaptee) {
-		Assert.notNull(adaptee, "'delegate' must not be null");
+		Assert.notNull(adaptee, "Delegate must not be null");
 		this.adaptee = adaptee;
 	}
 
@@ -78,22 +81,26 @@ public abstract class FutureAdapter<T, S> implements Future<T> {
 	}
 
 	@Override
+	@Nullable
 	public T get() throws InterruptedException, ExecutionException {
 		return adaptInternal(this.adaptee.get());
 	}
 
 	@Override
+	@Nullable
 	public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
 		return adaptInternal(this.adaptee.get(timeout, unit));
 	}
 
 	@SuppressWarnings("unchecked")
+	@Nullable
 	final T adaptInternal(S adapteeResult) throws ExecutionException {
 		synchronized (this.mutex) {
 			switch (this.state) {
 				case SUCCESS:
 					return (T) this.result;
 				case FAILURE:
+					Assert.state(this.result instanceof ExecutionException, "Failure without exception");
 					throw (ExecutionException) this.result;
 				case NEW:
 					try {
@@ -123,6 +130,7 @@ public abstract class FutureAdapter<T, S> implements Future<T> {
 	 * Adapts the given adaptee's result into T.
 	 * @return the adapted result
 	 */
+	@Nullable
 	protected abstract T adapt(S adapteeResult) throws ExecutionException;
 
 

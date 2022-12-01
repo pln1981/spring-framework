@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,12 @@
 
 package org.springframework.jms.listener.adapter;
 
-import javax.jms.Destination;
-import javax.jms.JMSException;
-import javax.jms.Session;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSException;
+import jakarta.jms.Session;
 
 import org.springframework.jms.support.destination.DestinationResolver;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -48,9 +49,9 @@ import org.springframework.util.Assert;
  *
  * @author Stephane Nicoll
  * @since 4.2
+ * @param <T> the type of the response
  * @see org.springframework.jms.annotation.JmsListener
  * @see org.springframework.messaging.handler.annotation.SendTo
- * @param <T> the type of the response
  */
 public class JmsResponse<T> {
 
@@ -60,12 +61,12 @@ public class JmsResponse<T> {
 
 
 	/**
-	 * Create a new instance
-	 * @param response the content of the result
+	 * Create a new {@link JmsResponse} instance.
+	 * @param response the content of the response
 	 * @param destination the destination
 	 */
 	protected JmsResponse(T response, Object destination) {
-		Assert.notNull(response, "Result must not be null");
+		Assert.notNull(response, "'response' must not be null");
 		this.response = response;
 		this.destination = destination;
 	}
@@ -86,14 +87,14 @@ public class JmsResponse<T> {
 	 * @return the {@link Destination} to use
 	 * @throws JMSException if the DestinationResolver failed to resolve the destination
 	 */
+	@Nullable
 	public Destination resolveDestination(DestinationResolver destinationResolver, Session session)
 			throws JMSException {
 
-		if (this.destination instanceof Destination) {
-			return (Destination) this.destination;
+		if (this.destination instanceof Destination dest) {
+			return dest;
 		}
-		if (this.destination instanceof DestinationNameHolder) {
-			DestinationNameHolder nameHolder = (DestinationNameHolder) this.destination;
+		if (this.destination instanceof DestinationNameHolder nameHolder) {
 			return destinationResolver.resolveDestinationName(session,
 					nameHolder.destinationName, nameHolder.pubSubDomain);
 		}
@@ -111,7 +112,7 @@ public class JmsResponse<T> {
 	 */
 	public static <T> JmsResponse<T> forQueue(T result, String queueName) {
 		Assert.notNull(queueName, "Queue name must not be null");
-		return new JmsResponse<T>(result, new DestinationNameHolder(queueName, false));
+		return new JmsResponse<>(result, new DestinationNameHolder(queueName, false));
 	}
 
 	/**
@@ -119,7 +120,7 @@ public class JmsResponse<T> {
 	 */
 	public static <T> JmsResponse<T> forTopic(T result, String topicName) {
 		Assert.notNull(topicName, "Topic name must not be null");
-		return new JmsResponse<T>(result, new DestinationNameHolder(topicName, true));
+		return new JmsResponse<>(result, new DestinationNameHolder(topicName, true));
 	}
 
 	/**
@@ -127,7 +128,7 @@ public class JmsResponse<T> {
 	 */
 	public static <T> JmsResponse<T> forDestination(T result, Destination destination) {
 		Assert.notNull(destination, "Destination must not be null");
-		return new JmsResponse<T>(result, destination);
+		return new JmsResponse<>(result, destination);
 	}
 
 

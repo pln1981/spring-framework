@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,11 +25,11 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * A base class for WebSocket connection managers. Provides a declarative style of
- * connecting to a WebSocket server given a URI to connect to. The connection occurs when
- * the Spring ApplicationContext is refreshed, if the {@link #autoStartup} property is set
- * to {@code true}, or if set to {@code false}, the {@link #start()} and #stop methods can
- * be invoked manually.
+ * Base class for a connection manager that automates the process of connecting
+ * to a WebSocket server with the Spring ApplicationContext lifecycle. Connects
+ * to a WebSocket server on {@link #start()} and disconnects on {@link #stop()}.
+ * If {@link #setAutoStartup(boolean)} is set to {@code true} this will be done
+ * automatically when the Spring {@code ApplicationContext} is refreshed.
  *
  * @author Rossen Stoyanchev
  * @since 4.0
@@ -38,14 +38,13 @@ public abstract class ConnectionManagerSupport implements SmartLifecycle {
 
 	protected final Log logger = LogFactory.getLog(getClass());
 
-
 	private final URI uri;
 
 	private boolean autoStartup = false;
 
-	private boolean running = false;
+	private int phase = DEFAULT_PHASE;
 
-	private int phase = Integer.MAX_VALUE;
+	private volatile boolean running;
 
 	private final Object lifecycleMonitor = new Object();
 
@@ -55,6 +54,10 @@ public abstract class ConnectionManagerSupport implements SmartLifecycle {
 				uriVariables).encode().toUri();
 	}
 
+
+	protected URI getUri() {
+		return this.uri;
+	}
 
 	/**
 	 * Set whether to auto-connect to the remote endpoint after this connection manager
@@ -78,7 +81,7 @@ public abstract class ConnectionManagerSupport implements SmartLifecycle {
 	/**
 	 * Specify the phase in which a connection should be established to the remote
 	 * endpoint and subsequently closed. The startup order proceeds from lowest to
-	 * highest, and the shutdown order is the reverse of that. By default this value is
+	 * highest, and the shutdown order is the reverse of that. By default, this value is
 	 * Integer.MAX_VALUE meaning that this endpoint connection factory connects as late as
 	 * possible and is closed as soon as possible.
 	 */
@@ -95,22 +98,9 @@ public abstract class ConnectionManagerSupport implements SmartLifecycle {
 		return this.phase;
 	}
 
-	protected URI getUri() {
-		return this.uri;
-	}
 
 	/**
-	 * Return whether this ConnectionManager has been started.
-	 */
-	@Override
-	public boolean isRunning() {
-		synchronized (this.lifecycleMonitor) {
-			return this.running;
-		}
-	}
-
-	/**
-	 * Start the websocket connection. If already connected, the method has no impact.
+	 * Start the WebSocket connection. If already connected, the method has no impact.
 	 */
 	@Override
 	public final void start() {
@@ -122,34 +112,40 @@ public abstract class ConnectionManagerSupport implements SmartLifecycle {
 	}
 
 	protected void startInternal() {
-		synchronized (lifecycleMonitor) {
+		synchronized (this.lifecycleMonitor) {
 			if (logger.isInfoEnabled()) {
-				logger.info("Starting " + this.getClass().getSimpleName());
+				logger.info("Starting " + getClass().getSimpleName());
 			}
 			this.running = true;
 			openConnection();
 		}
 	}
 
-	protected abstract void openConnection();
-
 	@Override
 	public final void stop() {
 		synchronized (this.lifecycleMonitor) {
 			if (isRunning()) {
 				if (logger.isInfoEnabled()) {
-					logger.info("Stopping " + this.getClass().getSimpleName());
+					logger.info("Stopping " + getClass().getSimpleName());
 				}
 				try {
 					stopInternal();
 				}
-				catch (Throwable e) {
-					logger.error("Failed to stop WebSocket connection", e);
+				catch (Throwable ex) {
+					logger.error("Failed to stop WebSocket connection", ex);
 				}
 				finally {
 					this.running = false;
 				}
 			}
+		}
+	}
+
+	@Override
+	public final void stop(Runnable callback) {
+		synchronized (this.lifecycleMonitor) {
+			stop();
+			callback.run();
 		}
 	}
 
@@ -159,16 +155,27 @@ public abstract class ConnectionManagerSupport implements SmartLifecycle {
 		}
 	}
 
-	protected abstract boolean isConnected();
-
-	protected abstract void closeConnection() throws Exception;
-
+	/**
+	 * Return whether this ConnectionManager has been started.
+	 */
 	@Override
-	public final void stop(Runnable callback) {
-		synchronized (this.lifecycleMonitor) {
-			this.stop();
-			callback.run();
-		}
+	public boolean isRunning() {
+		return this.running;
 	}
+
+	/**
+	 * Whether the connection is open/{@code true} or closed/{@code false}.
+	 */
+	public abstract boolean isConnected();
+
+	/**
+	 * Subclasses implement this to actually establish the connection.
+	 */
+	protected abstract void openConnection();
+
+	/**
+	 * Subclasses implement this to close the connection.
+	 */
+	protected abstract void closeConnection() throws Exception;
 
 }

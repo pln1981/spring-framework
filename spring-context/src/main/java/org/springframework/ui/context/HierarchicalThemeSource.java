@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,13 +16,17 @@
 
 package org.springframework.ui.context;
 
+import org.springframework.lang.Nullable;
+
 /**
  * Sub-interface of ThemeSource to be implemented by objects that
  * can resolve theme messages hierarchically.
  *
  * @author Jean-Pierre Pawlak
  * @author Juergen Hoeller
+ * @deprecated as of 6.0 in favor of using CSS, without direct replacement
  */
+@Deprecated(since = "6.0")
 public interface HierarchicalThemeSource extends ThemeSource {
 
 	/**
@@ -32,11 +36,12 @@ public interface HierarchicalThemeSource extends ThemeSource {
 	 * resolve messages that this object can't resolve.
 	 * May be {@code null}, in which case no further resolution is possible.
 	 */
-	void setParentThemeSource(ThemeSource parent);
+	void setParentThemeSource(@Nullable ThemeSource parent);
 
 	/**
 	 * Return the parent of this ThemeSource, or {@code null} if none.
 	 */
+	@Nullable
 	ThemeSource getParentThemeSource();
 
 }

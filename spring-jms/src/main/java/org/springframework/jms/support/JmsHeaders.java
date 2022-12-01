@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,82 +31,82 @@ public interface JmsHeaders {
 	 * user-defined headers and other internal headers (e.g. correlationId).
 	 * @see SimpleJmsHeaderMapper
 	 */
-	public static final String PREFIX = "jms_";
+	String PREFIX = "jms_";
 
 	/**
 	 * Correlation ID for the message. This may be the {@link #MESSAGE_ID} of
 	 * the message that this message replies to. It may also be an
 	 * application-specific identifier.
-	 * @see javax.jms.Message#getJMSCorrelationID()
+	 * @see jakarta.jms.Message#getJMSCorrelationID()
 	 */
-	public static final String CORRELATION_ID = PREFIX + "correlationId";
+	String CORRELATION_ID = PREFIX + "correlationId";
 
 	/**
 	 * Name of the destination (topic or queue) of the message.
 	 * <p>Read-only value.
-	 * @see javax.jms.Message#getJMSDestination()
-	 * @see javax.jms.Destination
-	 * @see javax.jms.Queue
-	 * @see javax.jms.Topic
+	 * @see jakarta.jms.Message#getJMSDestination()
+	 * @see jakarta.jms.Destination
+	 * @see jakarta.jms.Queue
+	 * @see jakarta.jms.Topic
 	 */
-	public static final String DESTINATION = PREFIX + "destination";
+	String DESTINATION = PREFIX + "destination";
 
 	/**
 	 * Distribution mode.
 	 * <p>Read-only value.
-	 * @see javax.jms.Message#getJMSDeliveryMode()
-	 * @see javax.jms.DeliveryMode
+	 * @see jakarta.jms.Message#getJMSDeliveryMode()
+	 * @see jakarta.jms.DeliveryMode
 	 */
-	public static final String DELIVERY_MODE = PREFIX + "deliveryMode";
+	String DELIVERY_MODE = PREFIX + "deliveryMode";
 
 	/**
 	 * Message expiration date and time.
 	 * <p>Read-only value.
-	 * @see javax.jms.Message#getJMSExpiration()
+	 * @see jakarta.jms.Message#getJMSExpiration()
 	 */
-	public static final String EXPIRATION = PREFIX + "expiration";
+	String EXPIRATION = PREFIX + "expiration";
 
 	/**
-	 * Unique Identifier for a message.
+	 * Unique identifier for a message.
 	 * <p>Read-only value.
-	 * @see javax.jms.Message#getJMSMessageID()
+	 * @see jakarta.jms.Message#getJMSMessageID()
 	 */
-	public static final String MESSAGE_ID = PREFIX + "messageId";
+	String MESSAGE_ID = PREFIX + "messageId";
 
 	/**
 	 * The message priority level.
 	 * <p>Read-only value.
-	 * @see javax.jms.Message#getJMSPriority()
+	 * @see jakarta.jms.Message#getJMSPriority()
 	 */
-	public static final String PRIORITY = PREFIX + "priority";
+	String PRIORITY = PREFIX + "priority";
 
 	/**
 	 * Name of the destination (topic or queue) the message replies should
 	 * be sent to.
-	 * @see javax.jms.Message#getJMSReplyTo()
+	 * @see jakarta.jms.Message#getJMSReplyTo()
 	 */
-	public static final String REPLY_TO = PREFIX + "replyTo";
+	String REPLY_TO = PREFIX + "replyTo";
 
 	/**
 	 * Specify if the message was resent. This occurs when a message
 	 * consumer fails to acknowledge the message reception.
 	 * <p>Read-only value.
-	 * @see javax.jms.Message#getJMSRedelivered()
+	 * @see jakarta.jms.Message#getJMSRedelivered()
 	 */
-	public static final String REDELIVERED = PREFIX + "redelivered";
+	String REDELIVERED = PREFIX + "redelivered";
 
 	/**
 	 * Message type label. This type is a string value describing the message
 	 * in a functional manner.
-	 * @see javax.jms.Message#getJMSType()
+	 * @see jakarta.jms.Message#getJMSType()
 	 */
-	public static final String TYPE = PREFIX + "type";
+	String TYPE = PREFIX + "type";
 
 	/**
 	 * Date and time of the message sending operation.
 	 * <p>Read-only value.
-	 * @see javax.jms.Message#getJMSTimestamp()
+	 * @see jakarta.jms.Message#getJMSTimestamp()
 	 */
-	public static final String TIMESTAMP = PREFIX + "timestamp";
+	String TIMESTAMP = PREFIX + "timestamp";
 
 }

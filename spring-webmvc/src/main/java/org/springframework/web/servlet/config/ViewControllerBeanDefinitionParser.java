@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,14 +21,14 @@ import java.util.Map;
 import org.w3c.dom.Element;
 
 import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.beans.factory.config.ConstructorArgumentValues;
 import org.springframework.beans.factory.config.RuntimeBeanReference;
 import org.springframework.beans.factory.parsing.BeanComponentDefinition;
 import org.springframework.beans.factory.support.ManagedMap;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.beans.factory.xml.BeanDefinitionParser;
 import org.springframework.beans.factory.xml.ParserContext;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.lang.Nullable;
 import org.springframework.web.servlet.handler.SimpleUrlHandlerMapping;
 import org.springframework.web.servlet.mvc.ParameterizableViewController;
 import org.springframework.web.servlet.view.RedirectView;
@@ -37,9 +37,9 @@ import org.springframework.web.servlet.view.RedirectView;
  * {@link org.springframework.beans.factory.xml.BeanDefinitionParser} that
  * parses the following MVC namespace elements:
  * <ul>
- *	<li>{@code <view-controller>}
- *	<li>{@code <redirect-view-controller>}
- *	<li>{@code <status-controller>}
+ * <li>{@code <view-controller>}
+ * <li>{@code <redirect-view-controller>}
+ * <li>{@code <status-controller>}
  * </ul>
  *
  * <p>All elements result in the registration of a
@@ -56,7 +56,7 @@ import org.springframework.web.servlet.view.RedirectView;
 class ViewControllerBeanDefinitionParser implements BeanDefinitionParser {
 
 	private static final String HANDLER_MAPPING_BEAN_NAME =
-		"org.springframework.web.servlet.config.viewControllerHandlerMapping";
+			"org.springframework.web.servlet.config.viewControllerHandlerMapping";
 
 
 	@Override
@@ -74,39 +74,36 @@ class ViewControllerBeanDefinitionParser implements BeanDefinitionParser {
 		RootBeanDefinition controller = new RootBeanDefinition(ParameterizableViewController.class);
 		controller.setSource(source);
 
-		HttpStatus statusCode = null;
+		HttpStatusCode statusCode = null;
 		if (element.hasAttribute("status-code")) {
-			int statusValue = Integer.valueOf(element.getAttribute("status-code"));
-			statusCode = HttpStatus.valueOf(statusValue);
+			int statusValue = Integer.parseInt(element.getAttribute("status-code"));
+			statusCode = HttpStatusCode.valueOf(statusValue);
 		}
 
 		String name = element.getLocalName();
-		if (name.equals("view-controller")) {
-			if (element.hasAttribute("view-name")) {
-				controller.getPropertyValues().add("viewName", element.getAttribute("view-name"));
+		switch (name) {
+			case "view-controller" -> {
+				if (element.hasAttribute("view-name")) {
+					controller.getPropertyValues().add("viewName", element.getAttribute("view-name"));
+				}
+				if (statusCode != null) {
+					controller.getPropertyValues().add("statusCode", statusCode);
+				}
 			}
-			if (statusCode != null) {
+			case "redirect-view-controller" ->
+				controller.getPropertyValues().add("view", getRedirectView(element, statusCode, source));
+			case "status-controller" -> {
 				controller.getPropertyValues().add("statusCode", statusCode);
+				controller.getPropertyValues().add("statusOnly", true);
 			}
-		}
-		else if (name.equals("redirect-view-controller")) {
-			controller.getPropertyValues().add("view", getRedirectView(element, statusCode, source));
-		}
-		else if (name.equals("status-controller")) {
-			controller.getPropertyValues().add("statusCode", statusCode);
-			controller.getPropertyValues().add("statusOnly", true);
-		}
-		else {
-			// Should never happen...
-			throw new IllegalStateException("Unexpected tag name: " + name);
+			default ->
+				// Should never happen...
+				throw new IllegalStateException("Unexpected tag name: " + name);
 		}
 
-		Map<String, BeanDefinition> urlMap;
-		if (hm.getPropertyValues().contains("urlMap")) {
-			urlMap = (Map<String, BeanDefinition>) hm.getPropertyValues().getPropertyValue("urlMap").getValue();
-		}
-		else {
-			urlMap = new ManagedMap<String, BeanDefinition>();
+		Map<String, BeanDefinition> urlMap = (Map<String, BeanDefinition>) hm.getPropertyValues().get("urlMap");
+		if (urlMap == null) {
+			urlMap = new ManagedMap<>();
 			hm.getPropertyValues().add("urlMap", urlMap);
 		}
 		urlMap.put(element.getAttribute("path"), controller);
@@ -114,7 +111,7 @@ class ViewControllerBeanDefinitionParser implements BeanDefinitionParser {
 		return null;
 	}
 
-	private BeanDefinition registerHandlerMapping(ParserContext context, Object source) {
+	private BeanDefinition registerHandlerMapping(ParserContext context, @Nullable Object source) {
 		if (context.getRegistry().containsBeanDefinition(HANDLER_MAPPING_BEAN_NAME)) {
 			return context.getRegistry().getBeanDefinition(HANDLER_MAPPING_BEAN_NAME);
 		}
@@ -133,22 +130,26 @@ class ViewControllerBeanDefinitionParser implements BeanDefinitionParser {
 		return beanDef;
 	}
 
-	private RootBeanDefinition getRedirectView(Element element, HttpStatus status, Object source) {
-		ConstructorArgumentValues cavs = new ConstructorArgumentValues();
-		cavs.addIndexedArgumentValue(0, element.getAttribute("redirect-url"));
-		RootBeanDefinition redirectView = new RootBeanDefinition(RedirectView.class, cavs, null);
+	private RootBeanDefinition getRedirectView(Element element, @Nullable HttpStatusCode status, @Nullable Object source) {
+		RootBeanDefinition redirectView = new RootBeanDefinition(RedirectView.class);
 		redirectView.setSource(source);
+		redirectView.getConstructorArgumentValues().addIndexedArgumentValue(0, element.getAttribute("redirect-url"));
+
 		if (status != null) {
 			redirectView.getPropertyValues().add("statusCode", status);
 		}
+
 		if (element.hasAttribute("context-relative")) {
 			redirectView.getPropertyValues().add("contextRelative", element.getAttribute("context-relative"));
-		} else {
+		}
+		else {
 			redirectView.getPropertyValues().add("contextRelative", true);
 		}
+
 		if (element.hasAttribute("keep-query-params")) {
 			redirectView.getPropertyValues().add("propagateQueryParams", element.getAttribute("keep-query-params"));
 		}
+
 		return redirectView;
 	}
 

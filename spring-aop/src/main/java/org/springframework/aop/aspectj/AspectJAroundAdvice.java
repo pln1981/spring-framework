@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package org.springframework.aop.aspectj;
 
+import java.io.Serializable;
 import java.lang.reflect.Method;
 
 import org.aopalliance.intercept.MethodInterceptor;
@@ -24,6 +25,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.weaver.tools.JoinPointMatch;
 
 import org.springframework.aop.ProxyMethodInvocation;
+import org.springframework.lang.Nullable;
 
 /**
  * Spring AOP around advice (MethodInterceptor) that wraps
@@ -33,13 +35,15 @@ import org.springframework.aop.ProxyMethodInvocation;
  * @author Juergen Hoeller
  * @since 2.0
  */
-public class AspectJAroundAdvice extends AbstractAspectJAdvice implements MethodInterceptor {
+@SuppressWarnings("serial")
+public class AspectJAroundAdvice extends AbstractAspectJAdvice implements MethodInterceptor, Serializable {
 
 	public AspectJAroundAdvice(
 			Method aspectJAroundAdviceMethod, AspectJExpressionPointcut pointcut, AspectInstanceFactory aif) {
 
 		super(aspectJAroundAdviceMethod, pointcut, aif);
 	}
+
 
 	@Override
 	public boolean isBeforeAdvice() {
@@ -56,13 +60,12 @@ public class AspectJAroundAdvice extends AbstractAspectJAdvice implements Method
 		return true;
 	}
 
-
 	@Override
+	@Nullable
 	public Object invoke(MethodInvocation mi) throws Throwable {
-		if (!(mi instanceof ProxyMethodInvocation)) {
+		if (!(mi instanceof ProxyMethodInvocation pmi)) {
 			throw new IllegalStateException("MethodInvocation is not a Spring ProxyMethodInvocation: " + mi);
 		}
-		ProxyMethodInvocation pmi = (ProxyMethodInvocation) mi;
 		ProceedingJoinPoint pjp = lazyGetProceedingJoinPoint(pmi);
 		JoinPointMatch jpm = getJoinPointMatch(pmi);
 		return invokeAdviceMethod(pjp, jpm, null, null);

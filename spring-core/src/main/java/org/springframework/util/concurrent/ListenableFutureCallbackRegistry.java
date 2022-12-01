@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,29 +16,36 @@
 
 package org.springframework.util.concurrent;
 
-import java.util.LinkedList;
+import java.util.ArrayDeque;
 import java.util.Queue;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
- * Registry for {@link ListenableFutureCallback} instances.
+ * Helper class for {@link ListenableFuture} implementations that maintains a queue
+ * of success and failure callbacks and helps to notify them.
  *
  * <p>Inspired by {@code com.google.common.util.concurrent.ExecutionList}.
  *
  * @author Arjen Poutsma
  * @author Sebastien Deleuze
+ * @author Rossen Stoyanchev
  * @since 4.0
+ * @param <T> the callback result type
+ * @deprecated as of 6.0, with no concrete replacement
  */
+@Deprecated(since = "6.0")
 public class ListenableFutureCallbackRegistry<T> {
 
-	private final Queue<SuccessCallback<? super T>> successCallbacks = new LinkedList<SuccessCallback<? super T>>();
+	private final Queue<SuccessCallback<? super T>> successCallbacks = new ArrayDeque<>(1);
 
-	private final Queue<FailureCallback> failureCallbacks = new LinkedList<FailureCallback>();
+	private final Queue<FailureCallback> failureCallbacks = new ArrayDeque<>(1);
 
 	private State state = State.NEW;
 
-	private Object result = null;
+	@Nullable
+	private Object result;
 
 	private final Object mutex = new Object();
 
@@ -47,22 +54,37 @@ public class ListenableFutureCallbackRegistry<T> {
 	 * Add the given callback to this registry.
 	 * @param callback the callback to add
 	 */
-	@SuppressWarnings("unchecked")
 	public void addCallback(ListenableFutureCallback<? super T> callback) {
 		Assert.notNull(callback, "'callback' must not be null");
 		synchronized (this.mutex) {
 			switch (this.state) {
-				case NEW:
+				case NEW -> {
 					this.successCallbacks.add(callback);
 					this.failureCallbacks.add(callback);
-					break;
-				case SUCCESS:
-					callback.onSuccess((T) this.result);
-					break;
-				case FAILURE:
-					callback.onFailure((Throwable) this.result);
-					break;
+				}
+				case SUCCESS -> notifySuccess(callback);
+				case FAILURE -> notifyFailure(callback);
 			}
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void notifySuccess(SuccessCallback<? super T> callback) {
+		try {
+			callback.onSuccess((T) this.result);
+		}
+		catch (Throwable ex) {
+			// Ignore
+		}
+	}
+
+	private void notifyFailure(FailureCallback callback) {
+		Assert.state(this.result instanceof Throwable, "No Throwable result for failure state");
+		try {
+			callback.onFailure((Throwable) this.result);
+		}
+		catch (Throwable ex) {
+			// Ignore
 		}
 	}
 
@@ -71,17 +93,12 @@ public class ListenableFutureCallbackRegistry<T> {
 	 * @param callback the success callback to add
 	 * @since 4.1
 	 */
-	@SuppressWarnings("unchecked")
 	public void addSuccessCallback(SuccessCallback<? super T> callback) {
 		Assert.notNull(callback, "'callback' must not be null");
 		synchronized (this.mutex) {
 			switch (this.state) {
-				case NEW:
-					this.successCallbacks.add(callback);
-					break;
-				case SUCCESS:
-					callback.onSuccess((T) this.result);
-					break;
+				case NEW -> this.successCallbacks.add(callback);
+				case SUCCESS -> notifySuccess(callback);
 			}
 		}
 	}
@@ -95,12 +112,8 @@ public class ListenableFutureCallbackRegistry<T> {
 		Assert.notNull(callback, "'callback' must not be null");
 		synchronized (this.mutex) {
 			switch (this.state) {
-				case NEW:
-					this.failureCallbacks.add(callback);
-					break;
-				case FAILURE:
-					callback.onFailure((Throwable) this.result);
-					break;
+				case NEW -> this.failureCallbacks.add(callback);
+				case FAILURE -> notifyFailure(callback);
 			}
 		}
 	}
@@ -110,12 +123,13 @@ public class ListenableFutureCallbackRegistry<T> {
 	 * added callbacks with the given result.
 	 * @param result the result to trigger the callbacks with
 	 */
-	public void success(T result) {
+	public void success(@Nullable T result) {
 		synchronized (this.mutex) {
 			this.state = State.SUCCESS;
 			this.result = result;
-			while (!this.successCallbacks.isEmpty()) {
-				this.successCallbacks.poll().onSuccess(result);
+			SuccessCallback<? super T> callback;
+			while ((callback = this.successCallbacks.poll()) != null) {
+				notifySuccess(callback);
 			}
 		}
 	}
@@ -129,8 +143,9 @@ public class ListenableFutureCallbackRegistry<T> {
 		synchronized (this.mutex) {
 			this.state = State.FAILURE;
 			this.result = ex;
-			while (!this.failureCallbacks.isEmpty()) {
-				this.failureCallbacks.poll().onFailure(ex);
+			FailureCallback callback;
+			while ((callback = this.failureCallbacks.poll()) != null) {
+				notifyFailure(callback);
 			}
 		}
 	}

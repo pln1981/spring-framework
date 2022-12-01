@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,10 +19,11 @@ package org.springframework.jms.listener;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import javax.jms.Connection;
-import javax.jms.JMSException;
-import javax.jms.MessageConsumer;
-import javax.jms.Session;
+
+import jakarta.jms.Connection;
+import jakarta.jms.JMSException;
+import jakarta.jms.MessageConsumer;
+import jakarta.jms.Session;
 
 import org.springframework.core.Constants;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
@@ -31,6 +32,7 @@ import org.springframework.jms.JmsException;
 import org.springframework.jms.support.JmsUtils;
 import org.springframework.jms.support.destination.CachingDestinationResolver;
 import org.springframework.jms.support.destination.DestinationResolver;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.SchedulingAwareRunnable;
 import org.springframework.scheduling.SchedulingTaskExecutor;
 import org.springframework.util.Assert;
@@ -43,7 +45,7 @@ import org.springframework.util.backoff.FixedBackOff;
  * Message listener container variant that uses plain JMS client APIs, specifically
  * a loop of {@code MessageConsumer.receive()} calls that also allow for
  * transactional reception of messages (registering them with XA transactions).
- * Designed to work in a native JMS environment as well as in a Java EE environment,
+ * Designed to work in a native JMS environment as well as in a Jakarta EE environment,
  * with only minimal differences in configuration.
  *
  * <p>This is a simple but nevertheless powerful form of message listener container.
@@ -60,22 +62,21 @@ import org.springframework.util.backoff.FixedBackOff;
  * abstraction. By default, the specified number of invoker tasks will be created
  * on startup, according to the {@link #setConcurrentConsumers "concurrentConsumers"}
  * setting. Specify an alternative {@code TaskExecutor} to integrate with an existing
- * thread pool facility (such as a Java EE server's), for example using a
- * {@link org.springframework.scheduling.commonj.WorkManagerTaskExecutor CommonJ WorkManager}.
- * With a native JMS setup, each of those listener threads is going to use a
- * cached JMS {@code Session} and {@code MessageConsumer} (only refreshed in case
- * of failure), using the JMS provider's resources as efficiently as possible.
+ * thread pool facility (such as a Jakarta EE server's). With a native JMS setup,
+ * each of those listener threads is going to use a cached JMS {@code Session} and
+ * {@code MessageConsumer} (only refreshed in case of failure), using the JMS provider's
+ * resources as efficiently as possible.
  *
  * <p>Message reception and listener execution can automatically be wrapped
  * in transactions by passing a Spring
  * {@link org.springframework.transaction.PlatformTransactionManager} into the
  * {@link #setTransactionManager "transactionManager"} property. This will usually
  * be a {@link org.springframework.transaction.jta.JtaTransactionManager} in a
- * Java EE environment, in combination with a JTA-aware JMS {@code ConnectionFactory}
- * obtained from JNDI (check your Java EE server's documentation). Note that this
+ * Jakarta EE environment, in combination with a JTA-aware JMS {@code ConnectionFactory}
+ * obtained from JNDI (check your Jakarta EE server's documentation). Note that this
  * listener container will automatically reobtain all JMS handles for each transaction
  * in case an external transaction manager is specified, for compatibility with
- * all Java EE servers (in particular JBoss). This non-caching behavior can be
+ * all Jakarta EE servers (in particular JBoss). This non-caching behavior can be
  * overridden through the {@link #setCacheLevel "cacheLevel"} /
  * {@link #setCacheLevelName "cacheLevelName"} property, enforcing caching of
  * the {@code Connection} (or also {@code Session} and {@code MessageConsumer})
@@ -117,7 +118,7 @@ import org.springframework.util.backoff.FixedBackOff;
  * @since 2.0
  * @see #setTransactionManager
  * @see #setCacheLevel
- * @see javax.jms.MessageConsumer#receive(long)
+ * @see jakarta.jms.MessageConsumer#receive(long)
  * @see SimpleMessageListenerContainer
  * @see org.springframework.jms.listener.endpoint.JmsMessageEndpointManager
  */
@@ -173,9 +174,10 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	private static final Constants constants = new Constants(DefaultMessageListenerContainer.class);
 
 
+	@Nullable
 	private Executor taskExecutor;
 
-	private BackOff backOff = createDefaultBackOff(DEFAULT_RECOVERY_INTERVAL);
+	private BackOff backOff = new FixedBackOff(DEFAULT_RECOVERY_INTERVAL, Long.MAX_VALUE);
 
 	private int cacheLevel = CACHE_AUTO;
 
@@ -189,14 +191,19 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 
 	private int idleTaskExecutionLimit = 1;
 
-	private final Set<AsyncMessageListenerInvoker> scheduledInvokers = new HashSet<AsyncMessageListenerInvoker>();
+	private int idleReceivesPerTaskLimit = Integer.MIN_VALUE;
+
+	private final Set<AsyncMessageListenerInvoker> scheduledInvokers = new HashSet<>();
 
 	private int activeInvokerCount = 0;
 
 	private int registeredWithDestination = 0;
 
-	private volatile boolean recovering = false;
+	private volatile boolean recovering;
 
+	private volatile boolean interrupted;
+
+	@Nullable
 	private Runnable stopCallback;
 
 	private Object currentRecoveryMarker = new Object();
@@ -211,12 +218,11 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	 * of concurrent consumers.
 	 * <p>Specify an alternative {@code TaskExecutor} for integration with an existing
 	 * thread pool. Note that this really only adds value if the threads are
-	 * managed in a specific fashion, for example within a Java EE environment.
+	 * managed in a specific fashion, for example within a Jakarta EE environment.
 	 * A plain thread pool does not add much value, as this listener container
 	 * will occupy a number of threads for its entire lifetime.
 	 * @see #setConcurrentConsumers
 	 * @see org.springframework.core.task.SimpleAsyncTaskExecutor
-	 * @see org.springframework.scheduling.commonj.WorkManagerTaskExecutor
 	 */
 	public void setTaskExecutor(Executor taskExecutor) {
 		this.taskExecutor = taskExecutor;
@@ -229,6 +235,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	 * attempt to recover.
 	 * <p>The {@link #setRecoveryInterval(long) recovery interval} is ignored
 	 * when this property is set.
+	 * @since 4.1
 	 */
 	public void setBackOff(BackOff backOff) {
 		this.backOff = backOff;
@@ -244,7 +251,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	 * @see #handleListenerSetupFailure
 	 */
 	public void setRecoveryInterval(long recoveryInterval) {
-		this.backOff = createDefaultBackOff(recoveryInterval);
+		this.backOff = new FixedBackOff(recoveryInterval, Long.MAX_VALUE);
 	}
 
 	/**
@@ -253,7 +260,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	 * @see #setCacheLevel
 	 */
 	public void setCacheLevelName(String constantName) throws IllegalArgumentException {
-		if (constantName == null || !constantName.startsWith("CACHE_")) {
+		if (!constantName.startsWith("CACHE_")) {
 			throw new IllegalArgumentException("Only cache constants allowed");
 		}
 		setCacheLevel(constants.asNumber(constantName).intValue());
@@ -264,7 +271,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	 * <p>Default is {@link #CACHE_NONE} if an external transaction manager has been specified
 	 * (to reobtain all resources freshly within the scope of the external transaction),
 	 * and {@link #CACHE_CONSUMER} otherwise (operating with local JMS resources).
-	 * <p>Some Java EE servers only register their JMS resources with an ongoing XA
+	 * <p>Some Jakarta EE servers only register their JMS resources with an ongoing XA
 	 * transaction in case of a freshly obtained JMS {@code Connection} and {@code Session},
 	 * which is why this listener container by default does not cache any of those.
 	 * However, depending on the rules of your server with respect to the caching
@@ -302,8 +309,8 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 		try {
 			int separatorIndex = concurrency.indexOf('-');
 			if (separatorIndex != -1) {
-				setConcurrentConsumers(Integer.parseInt(concurrency.substring(0, separatorIndex)));
-				setMaxConcurrentConsumers(Integer.parseInt(concurrency.substring(separatorIndex + 1, concurrency.length())));
+				setConcurrentConsumers(Integer.parseInt(concurrency, 0, separatorIndex, 10));
+				setMaxConcurrentConsumers(Integer.parseInt(concurrency, separatorIndex + 1, concurrency.length(), 10));
 			}
 			else {
 				setConcurrentConsumers(1);
@@ -377,8 +384,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	public void setMaxConcurrentConsumers(int maxConcurrentConsumers) {
 		Assert.isTrue(maxConcurrentConsumers > 0, "'maxConcurrentConsumers' value must be at least 1 (one)");
 		synchronized (this.lifecycleMonitor) {
-			this.maxConcurrentConsumers =
-					(maxConcurrentConsumers > this.concurrentConsumers ? maxConcurrentConsumers : this.concurrentConsumers);
+			this.maxConcurrentConsumers = Math.max(maxConcurrentConsumers, this.concurrentConsumers);
 		}
 	}
 
@@ -502,6 +508,49 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 		}
 	}
 
+	/**
+	 * Marks the consumer as 'idle' after the specified number of idle receives
+	 * have been reached. An idle receive is counted from the moment a null message
+	 * is returned by the receiver after the potential {@link #setReceiveTimeout}
+	 * elapsed. This gives the opportunity to check if the idle task count exceeds
+	 * {@link #setIdleTaskExecutionLimit} and based on that decide if the task needs
+	 * to be re-scheduled or not, saving resources that would otherwise be held.
+	 * <p>This setting differs from {@link #setMaxMessagesPerTask} where the task is
+	 * released and re-scheduled after this limit is reached, no matter if the received
+	 * messages were null or non-null messages. This setting alone can be inflexible
+	 * if one desires to have a large enough batch for each task but requires a
+	 * quick(er) release from the moment there are no more messages to process.
+	 * <p>This setting differs from {@link #setIdleTaskExecutionLimit} where this limit
+	 * decides after how many iterations of being marked as idle, a task is released.
+	 * <p>For example: If {@link #setMaxMessagesPerTask} is set to '500' and
+	 * {@code #setIdleReceivesPerTaskLimit} is set to '60' and {@link #setReceiveTimeout}
+	 * is set to '1000' and {@link #setIdleTaskExecutionLimit} is set to '1', then 500
+	 * messages per task would be processed unless there is a subsequent number of 60
+	 * idle messages received, the task would be marked as idle and released. This also
+	 * means that after the last message was processed, the task would be released after
+	 * 60 seconds as long as no new messages appear.
+	 * @since 5.3.5
+	 * @see #setMaxMessagesPerTask
+	 * @see #setReceiveTimeout
+	 */
+	public void setIdleReceivesPerTaskLimit(int idleReceivesPerTaskLimit) {
+		Assert.isTrue(idleReceivesPerTaskLimit != 0, "'idleReceivesPerTaskLimit' must not be 0)");
+		synchronized (this.lifecycleMonitor) {
+			this.idleReceivesPerTaskLimit = idleReceivesPerTaskLimit;
+		}
+	}
+
+	/**
+	 * Return the maximum number of subsequent null messages to receive in a single task
+	 * before marking the consumer as 'idle'.
+	 * @since 5.3.5
+	 */
+	public int getIdleReceivesPerTaskLimit() {
+		synchronized (this.lifecycleMonitor) {
+			return this.idleReceivesPerTaskLimit;
+		}
+	}
+
 
 	//-------------------------------------------------------------------------
 	// Implementation of AbstractMessageListenerContainer's template methods
@@ -557,21 +606,32 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 		logger.debug("Waiting for shutdown of message listener invokers");
 		try {
 			synchronized (this.lifecycleMonitor) {
-				// Waiting for AsyncMessageListenerInvokers to deactivate themselves...
+				long receiveTimeout = getReceiveTimeout();
+				long waitStartTime = System.currentTimeMillis();
+				int waitCount = 0;
 				while (this.activeInvokerCount > 0) {
+					if (waitCount > 0 && !isAcceptMessagesWhileStopping() &&
+							System.currentTimeMillis() - waitStartTime >= receiveTimeout) {
+						// Unexpectedly some invokers are still active after the receive timeout period
+						// -> interrupt remaining receive attempts since we'd reject the messages anyway
+						for (AsyncMessageListenerInvoker scheduledInvoker : this.scheduledInvokers) {
+							scheduledInvoker.interruptIfNecessary();
+						}
+					}
 					if (logger.isDebugEnabled()) {
 						logger.debug("Still waiting for shutdown of " + this.activeInvokerCount +
-								" message listener invokers");
+								" message listener invokers (iteration " + waitCount + ")");
 					}
-					long timeout = getReceiveTimeout();
-					if (timeout > 0) {
-						this.lifecycleMonitor.wait(timeout);
+					// Wait for AsyncMessageListenerInvokers to deactivate themselves...
+					if (receiveTimeout > 0) {
+						this.lifecycleMonitor.wait(receiveTimeout);
 					}
 					else {
 						this.lifecycleMonitor.wait();
 					}
+					waitCount++;
 				}
-				// Clear remaining scheduled invokers, possibly left over as paused tasks...
+				// Clear remaining scheduled invokers, possibly left over as paused tasks
 				for (AsyncMessageListenerInvoker scheduledInvoker : this.scheduledInvokers) {
 					scheduledInvoker.clearResources();
 				}
@@ -611,6 +671,12 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	@Override
 	public void stop(Runnable callback) throws JmsException {
 		synchronized (this.lifecycleMonitor) {
+			if (!isRunning() || this.stopCallback != null) {
+				// Not started, already stopped, or previous stop attempt in progress
+				// -> return immediately, no stop process to control anymore.
+				callback.run();
+				return;
+			}
 			this.stopCallback = callback;
 		}
 		stop();
@@ -708,6 +774,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	 */
 	@Override
 	protected void doRescheduleTask(Object task) {
+		Assert.state(this.taskExecutor != null, "No TaskExecutor available");
 		this.taskExecutor.execute((Runnable) task);
 	}
 
@@ -803,7 +870,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	}
 
 	/**
-	 * This implementations proceeds even after an exception thrown from
+	 * This implementation proceeds even after an exception thrown from
 	 * {@code Connection.start()}, relying on listeners to perform
 	 * appropriate recovery.
 	 */
@@ -818,7 +885,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	}
 
 	/**
-	 * This implementations proceeds even after an exception thrown from
+	 * This implementation proceeds even after an exception thrown from
 	 * {@code Connection.stop()}, relying on listeners to perform
 	 * appropriate recovery after a restart.
 	 */
@@ -851,7 +918,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 		}
 		if (ex instanceof SharedConnectionNotInitializedException) {
 			if (!alreadyRecovered) {
-				logger.info("JMS message listener invoker needs to establish shared Connection");
+				logger.debug("JMS message listener invoker needs to establish shared Connection");
 			}
 		}
 		else {
@@ -892,6 +959,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 		}
 		finally {
 			this.recovering = false;
+			this.interrupted = false;
 		}
 	}
 
@@ -918,7 +986,7 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 					Connection con = createConnection();
 					JmsUtils.closeConnection(con);
 				}
-				logger.info("Successfully refreshed JMS Connection");
+				logger.debug("Successfully refreshed JMS Connection");
 				break;
 			}
 			catch (Exception ex) {
@@ -938,11 +1006,8 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 				}
 			}
 			if (!applyBackOffTime(execution)) {
-				StringBuilder msg = new StringBuilder();
-				msg.append("Stopping container for destination '")
-						.append(getDestinationDescription())
-						.append("' - back off policy does not allow ").append("for further attempts.");
-				logger.error(msg.toString());
+				logger.error("Stopping container for destination '" + getDestinationDescription() +
+						"': back-off policy does not allow for further attempts.");
 				stop();
 			}
 		}
@@ -968,30 +1033,36 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	}
 
 	/**
-	 * Apply the next back off time using the specified {@link BackOffExecution}.
-	 * <p>Return {@code true} if the back off period has been applied and a new
+	 * Apply the next back-off time using the specified {@link BackOffExecution}.
+	 * <p>Return {@code true} if the back-off period has been applied and a new
 	 * attempt to recover should be made, {@code false} if no further attempt
 	 * should be made.
+	 * @since 4.1
 	 */
 	protected boolean applyBackOffTime(BackOffExecution execution) {
+		if (this.recovering && this.interrupted) {
+			// Interrupted right before and still failing... give up.
+			return false;
+		}
 		long interval = execution.nextBackOff();
 		if (interval == BackOffExecution.STOP) {
 			return false;
 		}
 		else {
 			try {
-				Thread.sleep(interval);
+				synchronized (this.lifecycleMonitor) {
+					this.lifecycleMonitor.wait(interval);
+				}
 			}
 			catch (InterruptedException interEx) {
 				// Re-interrupt current thread, to allow other threads to react.
 				Thread.currentThread().interrupt();
+				if (this.recovering) {
+					this.interrupted = true;
+				}
 			}
+			return true;
 		}
-		return true;
-	}
-
-	private FixedBackOff createDefaultBackOff(long interval) {
-		return new FixedBackOff(interval, Long.MAX_VALUE);
 	}
 
 	/**
@@ -1015,10 +1086,13 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 	 */
 	private class AsyncMessageListenerInvoker implements SchedulingAwareRunnable {
 
+		@Nullable
 		private Session session;
 
+		@Nullable
 		private MessageConsumer consumer;
 
+		@Nullable
 		private Object lastRecoveryMarker;
 
 		private boolean lastMessageSucceeded;
@@ -1026,6 +1100,9 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 		private int idleTaskExecutionCount = 0;
 
 		private volatile boolean idle = true;
+
+		@Nullable
+		private volatile Thread currentReceiveThread;
 
 		@Override
 		public void run() {
@@ -1035,23 +1112,29 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 			}
 			boolean messageReceived = false;
 			try {
-				if (maxMessagesPerTask < 0) {
+				int messageLimit = maxMessagesPerTask;
+				int idleLimit = idleReceivesPerTaskLimit;
+				if (messageLimit < 0 && idleLimit < 0) {
 					messageReceived = executeOngoingLoop();
 				}
 				else {
 					int messageCount = 0;
-					while (isRunning() && messageCount < maxMessagesPerTask) {
-						messageReceived = (invokeListener() || messageReceived);
+					int idleCount = 0;
+					while (isRunning() && (messageLimit < 0 || messageCount < messageLimit) &&
+							(idleLimit < 0 || idleCount < idleLimit)) {
+						boolean currentReceived = invokeListener();
+						messageReceived |= currentReceived;
 						messageCount++;
+						idleCount = (currentReceived ? 0 : idleCount + 1);
 					}
 				}
 			}
 			catch (Throwable ex) {
 				clearResources();
 				if (!this.lastMessageSucceeded) {
-					// We failed more than once in a row or on startup - sleep before
-					// first recovery attempt.
-					sleepBeforeRecoveryAttempt();
+					// We failed more than once in a row or on startup -
+					// wait before first recovery attempt.
+					waitBeforeRecoveryAttempt();
 				}
 				this.lastMessageSucceeded = false;
 				boolean alreadyRecovered = false;
@@ -1146,10 +1229,16 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 		}
 
 		private boolean invokeListener() throws JMSException {
-			initResourcesIfNecessary();
-			boolean messageReceived = receiveAndExecute(this, this.session, this.consumer);
-			this.lastMessageSucceeded = true;
-			return messageReceived;
+			this.currentReceiveThread = Thread.currentThread();
+			try {
+				initResourcesIfNecessary();
+				boolean messageReceived = receiveAndExecute(this, this.session, this.consumer);
+				this.lastMessageSucceeded = true;
+				return messageReceived;
+			}
+			finally {
+				this.currentReceiveThread = null;
+			}
 		}
 
 		private void decreaseActiveInvokerCount() {
@@ -1184,6 +1273,13 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 			}
 		}
 
+		private void interruptIfNecessary() {
+			Thread currentReceiveThread = this.currentReceiveThread;
+			if (currentReceiveThread != null && !currentReceiveThread.isInterrupted()) {
+				currentReceiveThread.interrupt();
+			}
+		}
+
 		private void clearResources() {
 			if (sharedConnectionEnabled()) {
 				synchronized (sharedConnectionMonitor) {
@@ -1205,12 +1301,12 @@ public class DefaultMessageListenerContainer extends AbstractPollingMessageListe
 		}
 
 		/**
-		 * Apply the back off time once. In a regular scenario, the back off is only applied if we
-		 * failed to recover with the broker. This additional sleep period avoids a burst retry
+		 * Apply the back-off time once. In a regular scenario, the back-off is only applied if we
+		 * failed to recover with the broker. This additional wait period avoids a burst retry
 		 * scenario when the broker is actually up but something else if failing (i.e. listener
 		 * specific).
 		 */
-		private void sleepBeforeRecoveryAttempt() {
+		private void waitBeforeRecoveryAttempt() {
 			BackOffExecution execution = DefaultMessageListenerContainer.this.backOff.start();
 			applyBackOffTime(execution);
 		}

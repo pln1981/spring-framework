@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,8 @@
 
 package org.springframework.ui.context;
 
+import org.springframework.lang.Nullable;
+
 /**
  * Interface to be implemented by objects that can resolve {@link Theme Themes}.
  * This enables parameterization and internationalization of messages
@@ -24,7 +26,9 @@ package org.springframework.ui.context;
  * @author Jean-Pierre Pawlak
  * @author Juergen Hoeller
  * @see Theme
+ * @deprecated as of 6.0 in favor of using CSS, without direct replacement
  */
+@Deprecated(since = "6.0")
 public interface ThemeSource {
 
 	/**
@@ -38,6 +42,7 @@ public interface ThemeSource {
 	 * return default Themes for other theme names.
 	 * @see org.springframework.web.servlet.theme.AbstractThemeResolver#ORIGINAL_DEFAULT_THEME_NAME
 	 */
+	@Nullable
 	Theme getTheme(String themeName);
 
 }

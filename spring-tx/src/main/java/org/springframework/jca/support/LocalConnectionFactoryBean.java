@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,25 +16,26 @@
 
 package org.springframework.jca.support;
 
-import javax.resource.ResourceException;
-import javax.resource.spi.ConnectionManager;
-import javax.resource.spi.ManagedConnectionFactory;
+import jakarta.resource.ResourceException;
+import jakarta.resource.spi.ConnectionManager;
+import jakarta.resource.spi.ManagedConnectionFactory;
 
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.lang.Nullable;
 
 /**
  * {@link org.springframework.beans.factory.FactoryBean} that creates
  * a local JCA connection factory in "non-managed" mode (as defined by the
  * Java Connector Architecture specification). This is a direct alternative
  * to a {@link org.springframework.jndi.JndiObjectFactoryBean} definition that
- * obtains a connection factory handle from a J2EE server's naming environment.
+ * obtains a connection factory handle from a Jakarta EE server's naming environment.
  *
  * <p>The type of the connection factory is dependent on the actual connector:
  * the connector can either expose its native API (such as a JDBC
- * {@link javax.sql.DataSource} or a JMS {@link javax.jms.ConnectionFactory})
+ * {@link javax.sql.DataSource} or a JMS {@link jakarta.jms.ConnectionFactory})
  * or follow the standard Common Client Interface (CCI), as defined by the JCA spec.
- * The exposed interface in the CCI case is {@link javax.resource.cci.ConnectionFactory}.
+ * The exposed interface in the CCI case is {@link jakarta.resource.cci.ConnectionFactory}.
  *
  * <p>In order to use this FactoryBean, you must specify the connector's
  * {@link #setManagedConnectionFactory "managedConnectionFactory"} (usually
@@ -44,8 +45,8 @@ import org.springframework.beans.factory.InitializingBean;
  * in order to use a custom ConnectionManager instead of the connector's default.
  *
  * <p><b>NOTE:</b> In non-managed mode, a connector is not deployed on an
- * application server, or more specificially not interacting with an application
- * server. Consequently, it cannot use a J2EE server's system contracts:
+ * application server, or more specifically not interacting with an application
+ * server. Consequently, it cannot use a Jakarta EE server's system contracts:
  * connection management, transaction management, and security management.
  * A custom ConnectionManager implementation has to be used for applying those
  * services in conjunction with a standalone transaction coordinator etc.
@@ -56,24 +57,25 @@ import org.springframework.beans.factory.InitializingBean;
  * order to make the connector interact with an XA transaction coordinator.
  * Alternatively, simply use the native local transaction facilities of the
  * exposed API (e.g. CCI local transactions), or use a corresponding
- * implementation of Spring's PlatformTransactionManager SPI
- * (e.g. {@link org.springframework.jca.cci.connection.CciLocalTransactionManager})
- * to drive local transactions.
+ * implementation of Spring's PlatformTransactionManager SPI to drive local
+ * transactions.
  *
  * @author Juergen Hoeller
  * @since 1.2
  * @see #setManagedConnectionFactory
  * @see #setConnectionManager
- * @see javax.resource.cci.ConnectionFactory
- * @see javax.resource.cci.Connection#getLocalTransaction
- * @see org.springframework.jca.cci.connection.CciLocalTransactionManager
+ * @see jakarta.resource.cci.ConnectionFactory
+ * @see jakarta.resource.cci.Connection#getLocalTransaction
  */
 public class LocalConnectionFactoryBean implements FactoryBean<Object>, InitializingBean {
 
+	@Nullable
 	private ManagedConnectionFactory managedConnectionFactory;
 
+	@Nullable
 	private ConnectionManager connectionManager;
 
+	@Nullable
 	private Object connectionFactory;
 
 
@@ -83,15 +85,15 @@ public class LocalConnectionFactoryBean implements FactoryBean<Object>, Initiali
 	 * <p>The ManagerConnectionFactory will usually be set up as separate bean
 	 * (potentially as inner bean), populated with JavaBean properties:
 	 * a ManagerConnectionFactory is encouraged to follow the JavaBean pattern
-	 * by the JCA specification, analogous to a JDBC DataSource and a JDO
-	 * PersistenceManagerFactory.
+	 * by the JCA specification, analogous to a JDBC DataSource and a JPA
+	 * EntityManagerFactory.
 	 * <p>Note that the ManagerConnectionFactory implementation might expect
-	 * a reference to its JCA 1.5 ResourceAdapter, expressed through the
-	 * {@link javax.resource.spi.ResourceAdapterAssociation} interface.
+	 * a reference to its JCA 1.7 ResourceAdapter, expressed through the
+	 * {@link jakarta.resource.spi.ResourceAdapterAssociation} interface.
 	 * Simply inject the corresponding ResourceAdapter instance into its
 	 * "resourceAdapter" bean property in this case, before passing the
 	 * ManagerConnectionFactory into this LocalConnectionFactoryBean.
-	 * @see javax.resource.spi.ManagedConnectionFactory#createConnectionFactory()
+	 * @see jakarta.resource.spi.ManagedConnectionFactory#createConnectionFactory()
 	 */
 	public void setManagedConnectionFactory(ManagedConnectionFactory managedConnectionFactory) {
 		this.managedConnectionFactory = managedConnectionFactory;
@@ -103,7 +105,7 @@ public class LocalConnectionFactoryBean implements FactoryBean<Object>, Initiali
 	 * <p>A ConnectionManager implementation for local usage is often
 	 * included with a JCA connector. Such an included ConnectionManager
 	 * might be set as default, with no need to explicitly specify one.
-	 * @see javax.resource.spi.ManagedConnectionFactory#createConnectionFactory(javax.resource.spi.ConnectionManager)
+	 * @see jakarta.resource.spi.ManagedConnectionFactory#createConnectionFactory(jakarta.resource.spi.ConnectionManager)
 	 */
 	public void setConnectionManager(ConnectionManager connectionManager) {
 		this.connectionManager = connectionManager;
@@ -124,6 +126,7 @@ public class LocalConnectionFactoryBean implements FactoryBean<Object>, Initiali
 
 
 	@Override
+	@Nullable
 	public Object getObject() {
 		return this.connectionFactory;
 	}

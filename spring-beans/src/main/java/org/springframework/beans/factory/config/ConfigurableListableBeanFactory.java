@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import java.util.Iterator;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.lang.Nullable;
 
 /**
  * Configuration interface to be implemented by most listable bean factories.
@@ -77,7 +78,7 @@ public interface ConfigurableListableBeanFactory
 	 * implementation of the {@link org.springframework.beans.factory.ObjectFactory}
 	 * interface, which allows for lazy resolution of the actual target value.
 	 */
-	void registerResolvableDependency(Class<?> dependencyType, Object autowiredValue);
+	void registerResolvableDependency(Class<?> dependencyType, @Nullable Object autowiredValue);
 
 	/**
 	 * Determine whether the specified bean qualifies as an autowire candidate,
@@ -136,7 +137,10 @@ public interface ConfigurableListableBeanFactory
 	/**
 	 * Freeze all bean definitions, signalling that the registered bean definitions
 	 * will not be modified or post-processed any further.
-	 * <p>This allows the factory to aggressively cache bean definition metadata.
+	 * <p>This allows the factory to aggressively cache bean definition metadata
+	 * going forward, after clearing the initial temporary metadata cache.
+	 * @see #clearMetadataCache()
+	 * @see #isConfigurationFrozen()
 	 */
 	void freezeConfiguration();
 
@@ -144,6 +148,7 @@ public interface ConfigurableListableBeanFactory
 	 * Return whether this factory's bean definitions are frozen,
 	 * i.e. are not supposed to be modified or post-processed any further.
 	 * @return {@code true} if the factory's configuration is considered frozen
+	 * @see #freezeConfiguration()
 	 */
 	boolean isConfigurationFrozen();
 

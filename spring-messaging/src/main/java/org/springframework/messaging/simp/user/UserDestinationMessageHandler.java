@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,26 +16,27 @@
 
 package org.springframework.messaging.simp.user;
 
-import static org.springframework.messaging.simp.SimpMessageHeaderAccessor.*;
-
 import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 
 import org.springframework.context.SmartLifecycle;
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.SubscribableChannel;
 import org.springframework.messaging.core.MessageSendingOperations;
+import org.springframework.messaging.simp.SimpLogging;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.messaging.support.MessageHeaderInitializer;
+import org.springframework.messaging.support.NativeMessageHeaderAccessor;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
@@ -51,7 +52,7 @@ import org.springframework.util.StringUtils;
  */
 public class UserDestinationMessageHandler implements MessageHandler, SmartLifecycle {
 
-	private static final Log logger = LogFactory.getLog(UserDestinationMessageHandler.class);
+	private static final Log logger = SimpLogging.forLogName(UserDestinationMessageHandler.class);
 
 
 	private final SubscribableChannel clientInboundChannel;
@@ -62,13 +63,15 @@ public class UserDestinationMessageHandler implements MessageHandler, SmartLifec
 
 	private final MessageSendingOperations<String> messagingTemplate;
 
+	@Nullable
 	private BroadcastHandler broadcastHandler;
 
+	@Nullable
 	private MessageHeaderInitializer headerInitializer;
 
-	private final Object lifecycleMonitor = new Object();
+	private volatile boolean running;
 
-	private volatile boolean running = false;
+	private final Object lifecycleMonitor = new Object();
 
 
 	/**
@@ -107,7 +110,7 @@ public class UserDestinationMessageHandler implements MessageHandler, SmartLifec
 	 * <p>By default this is not set.
 	 * @param destination the target destination.
 	 */
-	public void setBroadcastDestination(String destination) {
+	public void setBroadcastDestination(@Nullable String destination) {
 		this.broadcastHandler = (StringUtils.hasText(destination) ?
 				new BroadcastHandler(this.messagingTemplate, destination) : null);
 	}
@@ -115,6 +118,7 @@ public class UserDestinationMessageHandler implements MessageHandler, SmartLifec
 	/**
 	 * Return the configured destination for unresolved messages.
 	 */
+	@Nullable
 	public String getBroadcastDestination() {
 		return (this.broadcastHandler != null ? this.broadcastHandler.getBroadcastDestination() : null);
 	}
@@ -132,34 +136,18 @@ public class UserDestinationMessageHandler implements MessageHandler, SmartLifec
 	 * headers of resolved target messages.
 	 * <p>By default this is not set.
 	 */
-	public void setHeaderInitializer(MessageHeaderInitializer headerInitializer) {
+	public void setHeaderInitializer(@Nullable MessageHeaderInitializer headerInitializer) {
 		this.headerInitializer = headerInitializer;
 	}
 
 	/**
 	 * Return the configured header initializer.
 	 */
+	@Nullable
 	public MessageHeaderInitializer getHeaderInitializer() {
 		return this.headerInitializer;
 	}
 
-
-	@Override
-	public int getPhase() {
-		return Integer.MAX_VALUE;
-	}
-
-	@Override
-	public boolean isAutoStartup() {
-		return true;
-	}
-
-	@Override
-	public final boolean isRunning() {
-		synchronized (this.lifecycleMonitor) {
-			return this.running;
-		}
-	}
 
 	@Override
 	public final void start() {
@@ -187,38 +175,48 @@ public class UserDestinationMessageHandler implements MessageHandler, SmartLifec
 		}
 	}
 
+	@Override
+	public final boolean isRunning() {
+		return this.running;
+	}
+
 
 	@Override
 	public void handleMessage(Message<?> message) throws MessagingException {
+		Message<?> messageToUse = message;
 		if (this.broadcastHandler != null) {
-			message = this.broadcastHandler.preHandle(message);
-			if (message == null) {
+			messageToUse = this.broadcastHandler.preHandle(message);
+			if (messageToUse == null) {
 				return;
 			}
 		}
-		UserDestinationResult result = this.destinationResolver.resolveDestination(message);
+
+		UserDestinationResult result = this.destinationResolver.resolveDestination(messageToUse);
 		if (result == null) {
 			return;
 		}
+
 		if (result.getTargetDestinations().isEmpty()) {
 			if (logger.isTraceEnabled()) {
 				logger.trace("No active sessions for user destination: " + result.getSourceDestination());
 			}
 			if (this.broadcastHandler != null) {
-				this.broadcastHandler.handleUnresolved(message);
+				this.broadcastHandler.handleUnresolved(messageToUse);
 			}
 			return;
 		}
-		SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.wrap(message);
+
+		SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.wrap(messageToUse);
 		initHeaders(accessor);
-		accessor.setNativeHeader(ORIGINAL_DESTINATION, result.getSubscribeDestination());
+		accessor.setNativeHeader(SimpMessageHeaderAccessor.ORIGINAL_DESTINATION, result.getSubscribeDestination());
 		accessor.setLeaveMutable(true);
-		message = MessageBuilder.createMessage(message.getPayload(), accessor.getMessageHeaders());
+
+		messageToUse = MessageBuilder.createMessage(messageToUse.getPayload(), accessor.getMessageHeaders());
 		if (logger.isTraceEnabled()) {
 			logger.trace("Translated " + result.getSourceDestination() + " -> " + result.getTargetDestinations());
 		}
 		for (String target : result.getTargetDestinations()) {
-			this.messagingTemplate.send(target, message);
+			this.messagingTemplate.send(target, messageToUse);
 		}
 	}
 
@@ -242,33 +240,33 @@ public class UserDestinationMessageHandler implements MessageHandler, SmartLifec
 
 		private static final List<String> NO_COPY_LIST = Arrays.asList("subscription", "message-id");
 
-
 		private final MessageSendingOperations<String> messagingTemplate;
 
 		private final String broadcastDestination;
-
 
 		public BroadcastHandler(MessageSendingOperations<String> template, String destination) {
 			this.messagingTemplate = template;
 			this.broadcastDestination = destination;
 		}
 
-
 		public String getBroadcastDestination() {
 			return this.broadcastDestination;
 		}
 
+		@Nullable
 		public Message<?> preHandle(Message<?> message) throws MessagingException {
 			String destination = SimpMessageHeaderAccessor.getDestination(message.getHeaders());
 			if (!getBroadcastDestination().equals(destination)) {
 				return message;
 			}
-			SimpMessageHeaderAccessor accessor = getAccessor(message, SimpMessageHeaderAccessor.class);
+			SimpMessageHeaderAccessor accessor =
+					MessageHeaderAccessor.getAccessor(message, SimpMessageHeaderAccessor.class);
+			Assert.state(accessor != null, "No SimpMessageHeaderAccessor");
 			if (accessor.getSessionId() == null) {
 				// Our own broadcast
 				return null;
 			}
-			destination = accessor.getFirstNativeHeader(ORIGINAL_DESTINATION);
+			destination = accessor.getFirstNativeHeader(SimpMessageHeaderAccessor.ORIGINAL_DESTINATION);
 			if (logger.isTraceEnabled()) {
 				logger.trace("Checking unresolved user destination: " + destination);
 			}
@@ -279,20 +277,23 @@ public class UserDestinationMessageHandler implements MessageHandler, SmartLifec
 				}
 				newAccessor.setNativeHeader(name, accessor.getFirstNativeHeader(name));
 			}
-			newAccessor.setDestination(destination);
+			if (destination != null) {
+				newAccessor.setDestination(destination);
+			}
 			newAccessor.setHeader(SimpMessageHeaderAccessor.IGNORE_ERROR, true); // ensure send doesn't block
 			return MessageBuilder.createMessage(message.getPayload(), newAccessor.getMessageHeaders());
 		}
 
 		public void handleUnresolved(Message<?> message) {
 			MessageHeaders headers = message.getHeaders();
-			if (SimpMessageHeaderAccessor.getFirstNativeHeader(ORIGINAL_DESTINATION, headers) != null) {
+			if (NativeMessageHeaderAccessor.getFirstNativeHeader(
+					SimpMessageHeaderAccessor.ORIGINAL_DESTINATION, headers) != null) {
 				// Re-broadcast
 				return;
 			}
 			SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.wrap(message);
 			String destination = accessor.getDestination();
-			accessor.setNativeHeader(ORIGINAL_DESTINATION, destination);
+			accessor.setNativeHeader(SimpMessageHeaderAccessor.ORIGINAL_DESTINATION, destination);
 			accessor.setLeaveMutable(true);
 			message = MessageBuilder.createMessage(message.getPayload(), accessor.getMessageHeaders());
 			if (logger.isTraceEnabled()) {

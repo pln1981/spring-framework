@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.core.env.EnvironmentCapable;
 import org.springframework.core.io.support.ResourcePatternResolver;
+import org.springframework.lang.Nullable;
 
 /**
  * Central interface to provide configuration for an application.
@@ -61,6 +62,7 @@ public interface ApplicationContext extends EnvironmentCapable, ListableBeanFact
 	 * Return the unique id of this application context.
 	 * @return the unique id of the context, or {@code null} if none
 	 */
+	@Nullable
 	String getId();
 
 	/**
@@ -86,12 +88,13 @@ public interface ApplicationContext extends EnvironmentCapable, ListableBeanFact
 	 * and this is the root of the context hierarchy.
 	 * @return the parent context, or {@code null} if there is no parent
 	 */
+	@Nullable
 	ApplicationContext getParent();
 
 	/**
 	 * Expose AutowireCapableBeanFactory functionality for this context.
 	 * <p>This is not typically used by application code, except for the purpose of
-	 * initializing bean instances that live outside of the application context,
+	 * initializing bean instances that live outside the application context,
 	 * applying the Spring bean lifecycle (fully or partly) to them.
 	 * <p>Alternatively, the internal BeanFactory exposed by the
 	 * {@link ConfigurableApplicationContext} interface offers access to the

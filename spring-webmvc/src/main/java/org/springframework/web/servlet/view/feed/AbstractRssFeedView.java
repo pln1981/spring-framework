@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,17 +18,19 @@ package org.springframework.web.servlet.view.feed;
 
 import java.util.List;
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 import com.rometools.rome.feed.rss.Channel;
 import com.rometools.rome.feed.rss.Item;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.springframework.http.MediaType;
 
 /**
  * Abstract superclass for RSS Feed views, using the
  * <a href="https://github.com/rometools/rome">ROME</a> package.
  *
- * <p>><b>NOTE: As of Spring 4.1, this is based on the {@code com.rometools}
+ * <p><b>NOTE: As of Spring 4.1, this is based on the {@code com.rometools}
  * variant of ROME, version 1.5. Please upgrade your build dependency.</b>
  *
  * <p>Application-specific view classes will extend this class.
@@ -46,8 +48,9 @@ import com.rometools.rome.feed.rss.Item;
 public abstract class AbstractRssFeedView extends AbstractFeedView<Channel> {
 
 	public AbstractRssFeedView() {
-		setContentType("application/rss+xml");
+		setContentType(MediaType.APPLICATION_RSS_XML_VALUE);
 	}
+
 
 	/**
 	 * Create a new Channel instance to hold the entries.

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,15 +17,17 @@
 package org.springframework.jms.listener.adapter;
 
 import java.lang.reflect.InvocationTargetException;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.MessageListener;
-import javax.jms.Session;
+
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
+import jakarta.jms.MessageListener;
+import jakarta.jms.Session;
 
 import org.springframework.jms.listener.SessionAwareMessageListener;
 import org.springframework.jms.listener.SubscriptionNameProvider;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.SimpleMessageConverter;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.MethodInvoker;
 import org.springframework.util.ObjectUtils;
@@ -34,7 +36,7 @@ import org.springframework.util.ObjectUtils;
  * Message listener adapter that delegates the handling of messages to target
  * listener methods via reflection, with flexible message type conversion.
  * Allows listener methods to operate on message content types, completely
- * independent from the JMS API.
+ * independent of the JMS API.
  *
  * <p>By default, the content of incoming JMS messages gets extracted before
  * being passed into the target listener method, to let the target method
@@ -49,7 +51,7 @@ import org.springframework.util.ObjectUtils;
  * message content type such as {@code String} or byte array), it will get
  * wrapped in a JMS {@code Message} and sent to the response destination
  * (either the JMS "reply-to" destination or a
- * {@link #setDefaultResponseDestination(javax.jms.Destination) specified default
+ * {@link #setDefaultResponseDestination(jakarta.jms.Destination) specified default
  * destination}).
  *
  * <p><b>Note:</b> The sending of response messages is only available when
@@ -84,10 +86,10 @@ import org.springframework.util.ObjectUtils;
  *
  * This next example illustrates a {@code Message} delegate
  * that just consumes the {@code String} contents of
- * {@link javax.jms.TextMessage TextMessages}. Notice also how the
+ * {@link jakarta.jms.TextMessage TextMessages}. Notice also how the
  * name of the {@code Message} handling method is different from the
  * {@link #ORIGINAL_DEFAULT_LISTENER_METHOD original} (this will have to
- * be configured in the attandant bean definition). Again, no {@code Message}
+ * be configured in the attendant bean definition). Again, no {@code Message}
  * will be sent back as the method returns {@code void}.
  *
  * <pre class="code">public interface TextMessageContentDelegate {
@@ -96,9 +98,9 @@ import org.springframework.util.ObjectUtils;
  *
  * This final example illustrates a {@code Message} delegate
  * that just consumes the {@code String} contents of
- * {@link javax.jms.TextMessage TextMessages}. Notice how the return type
+ * {@link jakarta.jms.TextMessage TextMessages}. Notice how the return type
  * of this method is {@code String}: This will result in the configured
- * {@link MessageListenerAdapter} sending a {@link javax.jms.TextMessage} in response.
+ * {@link MessageListenerAdapter} sending a {@link jakarta.jms.TextMessage} in response.
  *
  * <pre class="code">public interface ResponsiveTextMessageContentDelegate {
  *    String handleMessage(String text);
@@ -118,8 +120,7 @@ import org.springframework.util.ObjectUtils;
  * @see org.springframework.jms.listener.SessionAwareMessageListener
  * @see org.springframework.jms.listener.AbstractMessageListenerContainer#setMessageListener
  */
-public class MessageListenerAdapter extends AbstractAdaptableMessageListener
-		implements SubscriptionNameProvider {
+public class MessageListenerAdapter extends AbstractAdaptableMessageListener implements SubscriptionNameProvider {
 
 	/**
 	 * Out-of-the-box value for the default listener method: "handleMessage".
@@ -144,7 +145,8 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 	 * @param delegate the delegate object
 	 */
 	public MessageListenerAdapter(Object delegate) {
-		setDelegate(delegate);
+		Assert.notNull(delegate, "Delegate must not be null");
+		this.delegate = delegate;
 	}
 
 
@@ -184,6 +186,7 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 		return this.defaultListenerMethod;
 	}
 
+
 	/**
 	 * Spring {@link SessionAwareMessageListener} entry point.
 	 * <p>Delegates the message to the target listener method, with appropriate
@@ -195,23 +198,18 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 	 */
 	@Override
 	@SuppressWarnings("unchecked")
-	public void onMessage(Message message, Session session) throws JMSException {
+	public void onMessage(Message message, @Nullable Session session) throws JMSException {
 		// Check whether the delegate is a MessageListener impl itself.
 		// In that case, the adapter will simply act as a pass-through.
 		Object delegate = getDelegate();
 		if (delegate != this) {
 			if (delegate instanceof SessionAwareMessageListener) {
-				if (session != null) {
-					((SessionAwareMessageListener<Message>) delegate).onMessage(message, session);
-					return;
-				}
-				else if (!(delegate instanceof MessageListener)) {
-					throw new javax.jms.IllegalStateException("MessageListenerAdapter cannot handle a " +
-							"SessionAwareMessageListener delegate if it hasn't been invoked with a Session itself");
-				}
+				Assert.state(session != null, "Session is required for SessionAwareMessageListener");
+				((SessionAwareMessageListener<Message>) delegate).onMessage(message, session);
+				return;
 			}
-			if (delegate instanceof MessageListener) {
-				((MessageListener) delegate).onMessage(message);
+			if (delegate instanceof MessageListener listener) {
+				listener.onMessage(message);
 				return;
 			}
 		}
@@ -219,11 +217,6 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 		// Regular case: find a handler method reflectively.
 		Object convertedMessage = extractMessage(message);
 		String methodName = getListenerMethodName(message, convertedMessage);
-		if (methodName == null) {
-			throw new javax.jms.IllegalStateException("No default listener method specified: " +
-					"Either specify a non-null value for the 'defaultListenerMethod' property or " +
-					"override the 'getListenerMethodName' method.");
-		}
 
 		// Invoke the handler method with appropriate arguments.
 		Object[] listenerArguments = buildListenerArguments(convertedMessage);
@@ -239,8 +232,8 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 	@Override
 	public String getSubscriptionName() {
 		Object delegate = getDelegate();
-		if (delegate != this && delegate instanceof SubscriptionNameProvider) {
-			return ((SubscriptionNameProvider) delegate).getSubscriptionName();
+		if (delegate != this && delegate instanceof SubscriptionNameProvider provider) {
+			return provider.getSubscriptionName();
 		}
 		else {
 			return delegate.getClass().getName();
@@ -291,6 +284,7 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 	 * @see #getListenerMethodName
 	 * @see #buildListenerArguments
 	 */
+	@Nullable
 	protected Object invokeListenerMethod(String methodName, Object[] arguments) throws JMSException {
 		try {
 			MethodInvoker methodInvoker = new MethodInvoker();
@@ -302,8 +296,8 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 		}
 		catch (InvocationTargetException ex) {
 			Throwable targetEx = ex.getTargetException();
-			if (targetEx instanceof JMSException) {
-				throw (JMSException) targetEx;
+			if (targetEx instanceof JMSException jmsException) {
+				throw jmsException;
 			}
 			else {
 				throw new ListenerExecutionFailedException(

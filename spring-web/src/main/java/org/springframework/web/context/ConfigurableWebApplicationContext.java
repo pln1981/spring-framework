@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,10 +16,11 @@
 
 package org.springframework.web.context;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletContext;
 
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.lang.Nullable;
 
 /**
  * Interface to be implemented by configurable web application contexts.
@@ -46,7 +47,7 @@ public interface ConfigurableWebApplicationContext extends WebApplicationContext
 
 	/**
 	 * Name of the ServletConfig environment bean in the factory.
-	 * @see javax.servlet.ServletConfig
+	 * @see jakarta.servlet.ServletConfig
 	 */
 	String SERVLET_CONFIG_BEAN_NAME = "servletConfig";
 
@@ -57,18 +58,19 @@ public interface ConfigurableWebApplicationContext extends WebApplicationContext
 	 * called after the setting of all configuration properties.
 	 * @see #refresh()
 	 */
-	void setServletContext(ServletContext servletContext);
+	void setServletContext(@Nullable ServletContext servletContext);
 
 	/**
 	 * Set the ServletConfig for this web application context.
 	 * Only called for a WebApplicationContext that belongs to a specific Servlet.
 	 * @see #refresh()
 	 */
-	void setServletConfig(ServletConfig servletConfig);
+	void setServletConfig(@Nullable ServletConfig servletConfig);
 
 	/**
 	 * Return the ServletConfig for this web application context, if any.
 	 */
+	@Nullable
 	ServletConfig getServletConfig();
 
 	/**
@@ -76,11 +78,12 @@ public interface ConfigurableWebApplicationContext extends WebApplicationContext
 	 * to be used for building a default context config location.
 	 * The root web application context does not have a namespace.
 	 */
-	void setNamespace(String namespace);
+	void setNamespace(@Nullable String namespace);
 
 	/**
 	 * Return the namespace for this web application context, if any.
 	 */
+	@Nullable
 	String getNamespace();
 
 	/**
@@ -102,6 +105,7 @@ public interface ConfigurableWebApplicationContext extends WebApplicationContext
 	 * Return the config locations for this web application context,
 	 * or {@code null} if none specified.
 	 */
+	@Nullable
 	String[] getConfigLocations();
 
 }

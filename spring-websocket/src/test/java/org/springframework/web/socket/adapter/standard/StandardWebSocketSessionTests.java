@@ -1,10 +1,11 @@
-/* Copyright 2002-2014 the original author or authors.
+/*
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,48 +18,43 @@ package org.springframework.web.socket.adapter.standard;
 
 import java.util.HashMap;
 import java.util.Map;
-import javax.websocket.Session;
 
-import org.junit.Before;
-import org.junit.Test;
+import jakarta.websocket.Session;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import org.springframework.core.testfixture.security.TestPrincipal;
 import org.springframework.http.HttpHeaders;
-import org.springframework.web.socket.handler.TestPrincipal;
 
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 /**
  * Unit tests for {@link org.springframework.web.socket.adapter.standard.StandardWebSocketSession}.
  *
  * @author Rossen Stoyanchev
  */
+@SuppressWarnings("resource")
 public class StandardWebSocketSessionTests {
 
-	private HttpHeaders headers;
+	private final HttpHeaders headers = new HttpHeaders();
 
-	private Map<String,Object> attributes;
-
-
-	@Before
-	public void setup() {
-		this.headers = new HttpHeaders();
-		this.attributes = new HashMap<>();
-	}
+	private final Map<String, Object> attributes = new HashMap<>();
 
 
 	@Test
+	@SuppressWarnings("resource")
 	public void getPrincipalWithConstructorArg() {
 		TestPrincipal user = new TestPrincipal("joe");
 		StandardWebSocketSession session = new StandardWebSocketSession(this.headers, this.attributes, null, null, user);
 
-		assertSame(user, session.getPrincipal());
+		assertThat(session.getPrincipal()).isSameAs(user);
 	}
 
 	@Test
 	public void getPrincipalWithNativeSession() {
-
 		TestPrincipal user = new TestPrincipal("joe");
 
 		Session nativeSession = Mockito.mock(Session.class);
@@ -67,12 +63,11 @@ public class StandardWebSocketSessionTests {
 		StandardWebSocketSession session = new StandardWebSocketSession(this.headers, this.attributes, null, null);
 		session.initializeNativeSession(nativeSession);
 
-		assertSame(user, session.getPrincipal());
+		assertThat(session.getPrincipal()).isSameAs(user);
 	}
 
 	@Test
 	public void getPrincipalNone() {
-
 		Session nativeSession = Mockito.mock(Session.class);
 		given(nativeSession.getUserPrincipal()).willReturn(null);
 
@@ -81,13 +76,12 @@ public class StandardWebSocketSessionTests {
 
 		reset(nativeSession);
 
-		assertNull(session.getPrincipal());
+		assertThat(session.getPrincipal()).isNull();
 		verifyNoMoreInteractions(nativeSession);
 	}
 
 	@Test
 	public void getAcceptedProtocol() {
-
 		String protocol = "foo";
 
 		Session nativeSession = Mockito.mock(Session.class);
@@ -98,8 +92,18 @@ public class StandardWebSocketSessionTests {
 
 		reset(nativeSession);
 
-		assertEquals(protocol, session.getAcceptedProtocol());
+		assertThat(session.getAcceptedProtocol()).isEqualTo(protocol);
 		verifyNoMoreInteractions(nativeSession);
+	}
+
+	@Test // gh-29315
+	public void addAttributesWithNullKeyOrValue() {
+		this.attributes.put(null, "value");
+		this.attributes.put("key", null);
+		this.attributes.put("foo", "bar");
+
+		assertThat(new StandardWebSocketSession(this.headers, this.attributes, null, null).getAttributes())
+				.hasSize(1).containsEntry("foo", "bar");
 	}
 
 }

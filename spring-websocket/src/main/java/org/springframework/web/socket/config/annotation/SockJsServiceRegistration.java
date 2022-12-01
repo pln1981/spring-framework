@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
@@ -31,69 +32,85 @@ import org.springframework.web.socket.sockjs.transport.TransportHandlingSockJsSe
 import org.springframework.web.socket.sockjs.transport.handler.DefaultSockJsService;
 
 /**
- * A helper class for configuring SockJS fallback options, typically used indirectly, in
- * conjunction with {@link org.springframework.web.socket.config.annotation.EnableWebSocket @EnableWebSocket} and
- * {@link WebSocketConfigurer}.
+ * A helper class for configuring SockJS fallback options for use with an
+ * {@link org.springframework.web.socket.config.annotation.EnableWebSocket} and
+ * {@link WebSocketConfigurer} setup.
  *
  * @author Rossen Stoyanchev
  * @since 4.0
  */
 public class SockJsServiceRegistration {
 
-	private TaskScheduler taskScheduler;
+	@Nullable
+	private TaskScheduler scheduler;
 
+	@Nullable
 	private String clientLibraryUrl;
 
+	@Nullable
 	private Integer streamBytesLimit;
 
+	@Nullable
 	private Boolean sessionCookieNeeded;
 
+	@Nullable
 	private Long heartbeatTime;
 
+	@Nullable
 	private Long disconnectDelay;
 
+	@Nullable
 	private Integer httpMessageCacheSize;
 
+	@Nullable
 	private Boolean webSocketEnabled;
 
-	private final List<TransportHandler> transportHandlers = new ArrayList<TransportHandler>();
+	private final List<TransportHandler> transportHandlers = new ArrayList<>();
 
-	private final List<TransportHandler> transportHandlerOverrides = new ArrayList<TransportHandler>();
+	private final List<TransportHandler> transportHandlerOverrides = new ArrayList<>();
 
-	private final List<HandshakeInterceptor> interceptors = new ArrayList<HandshakeInterceptor>();
+	private final List<HandshakeInterceptor> interceptors = new ArrayList<>();
 
-	private final List<String> allowedOrigins = new ArrayList<String>();
+	private final List<String> allowedOrigins = new ArrayList<>();
 
+	private final List<String> allowedOriginPatterns = new ArrayList<>();
+
+	@Nullable
 	private Boolean suppressCors;
 
+	@Nullable
 	private SockJsMessageCodec messageCodec;
 
 
-	public SockJsServiceRegistration(TaskScheduler defaultTaskScheduler) {
-		this.taskScheduler = defaultTaskScheduler;
+	public SockJsServiceRegistration() {
 	}
 
 
-	public SockJsServiceRegistration setTaskScheduler(TaskScheduler taskScheduler) {
-		this.taskScheduler = taskScheduler;
+	/**
+	 * A scheduler instance to use for scheduling SockJS heart-beats.
+	 */
+	public SockJsServiceRegistration setTaskScheduler(TaskScheduler scheduler) {
+		Assert.notNull(scheduler, "TaskScheduler is required");
+		this.scheduler = scheduler;
 		return this;
 	}
 
 	/**
 	 * Transports with no native cross-domain communication (e.g. "eventsource",
 	 * "htmlfile") must get a simple page from the "foreign" domain in an invisible
-	 * iframe so that code in the iframe can run from  a domain local to the SockJS
-	 * server. Since the iframe needs to load the SockJS javascript client library,
-	 * this property allows specifying where to load it from.
+	 * {@code iframe} so that code in the {@code iframe} can run from a domain
+	 * local to the SockJS server. Since the {@code iframe} needs to load the
+	 * SockJS JavaScript client library, this property allows specifying where to
+	 * load it from.
 	 * <p>By default this is set to point to
-	 * "https://cdn.jsdelivr.net/sockjs/0.3.4/sockjs.min.js". However it can
-	 * also be set to point to a URL served by the application.
+	 * <a href="https://cdn.jsdelivr.net/sockjs/1.0.0/sockjs.min.js">"https://cdn.jsdelivr.net/sockjs/1.0.0/sockjs.min.js"</a>.
+	 * However, it can also be set to point to a URL served by the application.
 	 * <p>Note that it's possible to specify a relative URL in which case the URL
-	 * must be relative to the iframe URL. For example assuming a SockJS endpoint
-	 * mapped to "/sockjs", and resulting iframe URL "/sockjs/iframe.html", then the
+	 * must be relative to the {@code iframe} URL. For example assuming a SockJS endpoint
+	 * mapped to "/sockjs", and resulting {@code iframe} URL "/sockjs/iframe.html", then
 	 * the relative URL must start with "../../" to traverse up to the location
 	 * above the SockJS mapping. In case of a prefix-based Servlet mapping one more
-	 * traversal may be needed.
+	 * traversals may be needed.
 	 */
 	public SockJsServiceRegistration setClientLibraryUrl(String clientLibraryUrl) {
 		this.clientLibraryUrl = clientLibraryUrl;
@@ -104,7 +121,7 @@ public class SockJsServiceRegistration {
 	 * Streaming transports save responses on the client side and don't free
 	 * memory used by delivered messages. Such transports need to recycle the
 	 * connection once in a while. This property sets a minimum number of bytes
-	 * that can be send over a single HTTP streaming request before it will be
+	 * that can be sent over a single HTTP streaming request before it will be
 	 * closed. After that client will open a new request. Setting this value to
 	 * one effectively disables streaming and will make streaming transports to
 	 * behave like polling transports.
@@ -207,6 +224,7 @@ public class SockJsServiceRegistration {
 	}
 
 	/**
+	 * Configure allowed {@code Origin} header values.
 	 * @since 4.1.2
 	 */
 	protected SockJsServiceRegistration setAllowedOrigins(String... allowedOrigins) {
@@ -218,12 +236,24 @@ public class SockJsServiceRegistration {
 	}
 
 	/**
+	 * Configure allowed {@code Origin} pattern header values.
+	 * @since 5.3.2
+	 */
+	protected SockJsServiceRegistration setAllowedOriginPatterns(String... allowedOriginPatterns) {
+		this.allowedOriginPatterns.clear();
+		if (!ObjectUtils.isEmpty(allowedOriginPatterns)) {
+			this.allowedOriginPatterns.addAll(Arrays.asList(allowedOriginPatterns));
+		}
+		return this;
+	}
+
+	/**
 	 * This option can be used to disable automatic addition of CORS headers for
 	 * SockJS requests.
 	 * <p>The default value is "false".
-	 * @since 4.1.2
+	 * @since 5.3.23
 	 */
-	public SockJsServiceRegistration setSupressCors(boolean suppressCors) {
+	public SockJsServiceRegistration setSuppressCors(boolean suppressCors) {
 		this.suppressCors = suppressCors;
 		return this;
 	}
@@ -243,6 +273,7 @@ public class SockJsServiceRegistration {
 	protected SockJsService getSockJsService() {
 		TransportHandlingSockJsService service = createSockJsService();
 		service.setHandshakeInterceptors(this.interceptors);
+
 		if (this.clientLibraryUrl != null) {
 			service.setSockJsClientLibraryUrl(this.clientLibraryUrl);
 		}
@@ -264,27 +295,33 @@ public class SockJsServiceRegistration {
 		if (this.webSocketEnabled != null) {
 			service.setWebSocketEnabled(this.webSocketEnabled);
 		}
-		if (this.allowedOrigins != null) {
-			service.setAllowedOrigins(this.allowedOrigins);
-		}
 		if (this.suppressCors != null) {
 			service.setSuppressCors(this.suppressCors);
 		}
+		service.setAllowedOrigins(this.allowedOrigins);
+		service.setAllowedOriginPatterns(this.allowedOriginPatterns);
+
 		if (this.messageCodec != null) {
 			service.setMessageCodec(this.messageCodec);
 		}
 		return service;
 	}
 
+	/**
+	 * Return the TaskScheduler, if configured.
+	 */
+	@Nullable
+	protected TaskScheduler getTaskScheduler() {
+		return this.scheduler;
+	}
+
 	private TransportHandlingSockJsService createSockJsService() {
-		if (!this.transportHandlers.isEmpty()) {
-			Assert.state(this.transportHandlerOverrides.isEmpty(),
-					"Specify either TransportHandlers or TransportHandler overrides, not both");
-			return new TransportHandlingSockJsService(this.taskScheduler, this.transportHandlers);
-		}
-		else {
-			return new DefaultSockJsService(this.taskScheduler, this.transportHandlerOverrides);
-		}
+		Assert.state(this.scheduler != null, "No TaskScheduler available");
+		Assert.state(this.transportHandlers.isEmpty() || this.transportHandlerOverrides.isEmpty(),
+				"Specify either TransportHandlers or TransportHandler overrides, not both");
+		return (!this.transportHandlers.isEmpty() ?
+				new TransportHandlingSockJsService(this.scheduler, this.transportHandlers) :
+				new DefaultSockJsService(this.scheduler, this.transportHandlerOverrides));
 	}
 
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,23 +17,23 @@
 package org.springframework.web.socket.client;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.springframework.context.Lifecycle;
 import org.springframework.http.HttpHeaders;
-import org.springframework.util.concurrent.ListenableFuture;
-import org.springframework.util.concurrent.ListenableFutureCallback;
+import org.springframework.lang.Nullable;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.LoggingWebSocketHandlerDecorator;
 
 /**
- * A WebSocket connection manager that is given a URI, a {@link WebSocketClient}, and a
- * {@link WebSocketHandler}, connects to a WebSocket server through {@link #start()} and
- * {@link #stop()} methods. If {@link #setAutoStartup(boolean)} is set to {@code true}
- * this will be done automatically when the Spring ApplicationContext is refreshed.
+ * WebSocket {@link ConnectionManagerSupport connection manager} that connects
+ * to the server via {@link WebSocketClient} and handles the session with a
+ * {@link WebSocketHandler}.
  *
  * @author Rossen Stoyanchev
+ * @author Sam Brannen
  * @since 4.0
  */
 public class WebSocketConnectionManager extends ConnectionManagerSupport {
@@ -42,9 +42,10 @@ public class WebSocketConnectionManager extends ConnectionManagerSupport {
 
 	private final WebSocketHandler webSocketHandler;
 
+	@Nullable
 	private WebSocketSession webSocketSession;
 
-	private WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
+	private final WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
 
 
 	public WebSocketConnectionManager(WebSocketClient client,
@@ -55,14 +56,6 @@ public class WebSocketConnectionManager extends ConnectionManagerSupport {
 		this.webSocketHandler = decorateWebSocketHandler(webSocketHandler);
 	}
 
-
-	/**
-	 * Decorate the WebSocketHandler provided to the class constructor.
-	 * <p>By default {@link LoggingWebSocketHandlerDecorator} is added.
-	 */
-	protected WebSocketHandler decorateWebSocketHandler(WebSocketHandler handler) {
-		return new LoggingWebSocketHandlerDecorator(handler);
-	}
 
 	/**
 	 * Set the sub-protocols to use. If configured, specified sub-protocols will be
@@ -84,13 +77,14 @@ public class WebSocketConnectionManager extends ConnectionManagerSupport {
 	/**
 	 * Set the origin to use.
 	 */
-	public void setOrigin(String origin) {
+	public void setOrigin(@Nullable String origin) {
 		this.headers.setOrigin(origin);
 	}
 
 	/**
-	 * @return the configured origin.
+	 * Return the configured origin.
 	 */
+	@Nullable
 	public String getOrigin() {
 		return this.headers.getOrigin();
 	}
@@ -113,18 +107,23 @@ public class WebSocketConnectionManager extends ConnectionManagerSupport {
 
 	@Override
 	public void startInternal() {
-		if (this.client instanceof Lifecycle && !((Lifecycle) client).isRunning()) {
-			((Lifecycle) client).start();
+		if (this.client instanceof Lifecycle lifecycle && !lifecycle.isRunning()) {
+			lifecycle.start();
 		}
 		super.startInternal();
 	}
 
 	@Override
 	public void stopInternal() throws Exception {
-		if (this.client instanceof Lifecycle && ((Lifecycle) client).isRunning()) {
-			((Lifecycle) client).stop();
+		if (this.client instanceof Lifecycle lifecycle && lifecycle.isRunning()) {
+			lifecycle.stop();
 		}
 		super.stopInternal();
+	}
+
+	@Override
+	public boolean isConnected() {
+		return (this.webSocketSession != null && this.webSocketSession.isOpen());
 	}
 
 	@Override
@@ -133,17 +132,15 @@ public class WebSocketConnectionManager extends ConnectionManagerSupport {
 			logger.info("Connecting to WebSocket at " + getUri());
 		}
 
-		ListenableFuture<WebSocketSession> future =
-				this.client.doHandshake(this.webSocketHandler, this.headers, getUri());
+		CompletableFuture<WebSocketSession> future =
+				this.client.execute(this.webSocketHandler, this.headers, getUri());
 
-		future.addCallback(new ListenableFutureCallback<WebSocketSession>() {
-			@Override
-			public void onSuccess(WebSocketSession result) {
-				webSocketSession = result;
+		future.whenComplete((result, ex) -> {
+			if (result != null) {
+				this.webSocketSession = result;
 				logger.info("Successfully connected");
 			}
-			@Override
-			public void onFailure(Throwable ex) {
+			else if (ex != null) {
 				logger.error("Failed to connect", ex);
 			}
 		});
@@ -151,12 +148,17 @@ public class WebSocketConnectionManager extends ConnectionManagerSupport {
 
 	@Override
 	protected void closeConnection() throws Exception {
-		this.webSocketSession.close();
+		if (this.webSocketSession != null) {
+			this.webSocketSession.close();
+		}
 	}
 
-	@Override
-	protected boolean isConnected() {
-		return (this.webSocketSession != null && this.webSocketSession.isOpen());
+	/**
+	 * Decorate the WebSocketHandler provided to the class constructor.
+	 * <p>By default {@link LoggingWebSocketHandlerDecorator} is added.
+	 */
+	protected WebSocketHandler decorateWebSocketHandler(WebSocketHandler handler) {
+		return new LoggingWebSocketHandlerDecorator(handler);
 	}
 
 }

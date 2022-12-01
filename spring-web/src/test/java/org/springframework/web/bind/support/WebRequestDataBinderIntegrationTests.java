@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,58 +16,54 @@
 
 package org.springframework.web.bind.support;
 
-import java.io.IOException;
 import java.util.List;
-import javax.servlet.MultipartConfigElement;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.Part;
 
+import jakarta.servlet.MultipartConfigElement;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
-
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.MediaType;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.context.request.ServletWebRequest;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * @author Brian Clozel
  * @author Sam Brannen
  */
-public class WebRequestDataBinderIntegrationTests {
+@TestInstance(Lifecycle.PER_CLASS)
+class WebRequestDataBinderIntegrationTests {
 
-	private static Server jettyServer;
+	private final PartsServlet partsServlet = new PartsServlet();
 
-	private static final PartsServlet partsServlet = new PartsServlet();
-
-	private static final PartListServlet partListServlet = new PartListServlet();
+	private final PartListServlet partListServlet = new PartListServlet();
 
 	private final RestTemplate template = new RestTemplate(new HttpComponentsClientHttpRequestFactory());
 
-	protected static String baseUrl;
+	private Server jettyServer;
 
-	protected static MediaType contentType;
+	private String baseUrl;
 
 
-	@BeforeClass
-	public static void startJettyServer() throws Exception {
-
+	@BeforeAll
+	void startJettyServer() throws Exception {
 		// Let server pick its own random, available port.
 		jettyServer = new Server(0);
 
@@ -91,8 +87,8 @@ public class WebRequestDataBinderIntegrationTests {
 		baseUrl = "http://localhost:" + connector.getLocalPort();
 	}
 
-	@AfterClass
-	public static void stopJettyServer() throws Exception {
+	@AfterAll
+	void stopJettyServer() throws Exception {
 		if (jettyServer != null) {
 			jettyServer.stop();
 		}
@@ -100,29 +96,27 @@ public class WebRequestDataBinderIntegrationTests {
 
 
 	@Test
-	public void partsBinding() {
-
+	void partsBinding() {
 		PartsBean bean = new PartsBean();
 		partsServlet.setBean(bean);
 
-		MultiValueMap<String, Object> parts = new LinkedMultiValueMap<String, Object>();
+		MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
 		Resource firstPart = new ClassPathResource("/org/springframework/http/converter/logo.jpg");
 		parts.add("firstPart", firstPart);
 		parts.add("secondPart", "secondValue");
 
 		template.postForLocation(baseUrl + "/parts", parts);
 
-		assertNotNull(bean.getFirstPart());
-		assertNotNull(bean.getSecondPart());
+		assertThat(bean.getFirstPart()).isNotNull();
+		assertThat(bean.getSecondPart()).isNotNull();
 	}
 
 	@Test
-	public void partListBinding() {
-
+	void partListBinding() {
 		PartListBean bean = new PartListBean();
 		partListServlet.setBean(bean);
 
-		MultiValueMap<String, Object> parts = new LinkedMultiValueMap<String, Object>();
+		MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
 		parts.add("partList", "first value");
 		parts.add("partList", "second value");
 		Resource logo = new ClassPathResource("/org/springframework/http/converter/logo.jpg");
@@ -130,8 +124,8 @@ public class WebRequestDataBinderIntegrationTests {
 
 		template.postForLocation(baseUrl + "/partlist", parts);
 
-		assertNotNull(bean.getPartList());
-		assertEquals(parts.get("partList").size(), bean.getPartList().size());
+		assertThat(bean.getPartList()).isNotNull();
+		assertThat(bean.getPartList()).hasSize(parts.get("partList").size());
 	}
 
 
@@ -141,27 +135,24 @@ public class WebRequestDataBinderIntegrationTests {
 		private T bean;
 
 		@Override
-		public void service(HttpServletRequest request, HttpServletResponse response) throws
-				ServletException, IOException {
-
+		public void service(HttpServletRequest request, HttpServletResponse response) {
 			WebRequestDataBinder binder = new WebRequestDataBinder(bean);
 			ServletWebRequest webRequest = new ServletWebRequest(request, response);
-
 			binder.bind(webRequest);
-
 			response.setStatus(HttpServletResponse.SC_OK);
 		}
 
-		public void setBean(T bean) {
+		void setBean(T bean) {
 			this.bean = bean;
 		}
 	}
 
+
 	private static class PartsBean {
 
-		public Part firstPart;
+		private Part firstPart;
 
-		public Part secondPart;
+		private Part secondPart;
 
 		public Part getFirstPart() {
 			return firstPart;
@@ -182,13 +173,15 @@ public class WebRequestDataBinderIntegrationTests {
 		}
 	}
 
+
 	@SuppressWarnings("serial")
 	private static class PartsServlet extends AbstractStandardMultipartServlet<PartsBean> {
 	}
 
+
 	private static class PartListBean {
 
-		public List<Part> partList;
+		private List<Part> partList;
 
 		public List<Part> getPartList() {
 			return partList;
@@ -199,6 +192,7 @@ public class WebRequestDataBinderIntegrationTests {
 			this.partList = partList;
 		}
 	}
+
 
 	@SuppressWarnings("serial")
 	private static class PartListServlet extends AbstractStandardMultipartServlet<PartListBean> {

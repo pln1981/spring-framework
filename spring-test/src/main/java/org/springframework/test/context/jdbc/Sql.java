@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,22 +17,22 @@
 package org.springframework.test.context.jdbc;
 
 import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 import org.springframework.core.annotation.AliasFor;
-
-import static java.lang.annotation.ElementType.*;
-import static java.lang.annotation.RetentionPolicy.*;
 
 /**
  * {@code @Sql} is used to annotate a test class or test method to configure
  * SQL {@link #scripts} and {@link #statements} to be executed against a given
  * database during integration tests.
  *
- * <p>Method-level declarations override class-level declarations.
+ * <p>Method-level declarations override class-level declarations by default,
+ * but this behavior can be configured via {@link SqlMergeMode @SqlMergeMode}.
  *
  * <p>Script execution is performed by the {@link SqlScriptsTestExecutionListener},
  * which is enabled by default.
@@ -45,19 +45,22 @@ import static java.lang.annotation.RetentionPolicy.*;
  * XML namespace element. Consult the javadocs of individual attributes in this
  * annotation and {@link SqlConfig @SqlConfig} for details.
  *
- * <p>Beginning with Java 8, {@code @Sql} can be used as a
- * <em>{@linkplain Repeatable repeatable}</em> annotation. Otherwise,
- * {@link SqlGroup @SqlGroup} can be used as an explicit container for declaring
- * multiple instances of {@code @Sql}.
+ * <p>{@code @Sql} can be used as a <em>{@linkplain Repeatable repeatable}</em>
+ * annotation. Otherwise, {@link SqlGroup @SqlGroup} can be used as an explicit
+ * container for declaring multiple instances of {@code @Sql}.
  *
  * <p>This annotation may be used as a <em>meta-annotation</em> to create custom
- * <em>composed annotations</em>; however, attribute overrides are not currently
- * supported for {@linkplain Repeatable repeatable} annotations that are used as
- * meta-annotations.
+ * <em>composed annotations</em> with attribute overrides.
+ *
+ * <p>As of Spring Framework 5.3, this annotation will be inherited from an
+ * enclosing test class by default. See
+ * {@link org.springframework.test.context.NestedTestConfiguration @NestedTestConfiguration}
+ * for details.
  *
  * @author Sam Brannen
  * @since 4.1
  * @see SqlConfig
+ * @see SqlMergeMode
  * @see SqlGroup
  * @see SqlScriptsTestExecutionListener
  * @see org.springframework.transaction.annotation.Transactional
@@ -65,31 +68,12 @@ import static java.lang.annotation.RetentionPolicy.*;
  * @see org.springframework.jdbc.datasource.init.ResourceDatabasePopulator
  * @see org.springframework.jdbc.datasource.init.ScriptUtils
  */
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
-@Retention(RUNTIME)
-@Target({ TYPE, METHOD })
 @Repeatable(SqlGroup.class)
 public @interface Sql {
-
-	/**
-	 * Enumeration of <em>phases</em> that dictate when SQL scripts are executed.
-	 */
-	static enum ExecutionPhase {
-
-		/**
-		 * The configured SQL scripts and statements will be executed
-		 * <em>before</em> the corresponding test method.
-		 */
-		BEFORE_TEST_METHOD,
-
-		/**
-		 * The configured SQL scripts and statements will be executed
-		 * <em>after</em> the corresponding test method.
-		 */
-		AFTER_TEST_METHOD
-	}
-
 
 	/**
 	 * Alias for {@link #scripts}.
@@ -107,8 +91,7 @@ public @interface Sql {
 	 * {@link #value}, but it may be used instead of {@link #value}. Similarly,
 	 * this attribute may be used in conjunction with or instead of
 	 * {@link #statements}.
-	 *
-	 * <h3>Path Resource Semantics</h3>
+	 * <h4>Path Resource Semantics</h4>
 	 * <p>Each path will be interpreted as a Spring
 	 * {@link org.springframework.core.io.Resource Resource}. A plain path
 	 * &mdash; for example, {@code "schema.sql"} &mdash; will be treated as a
@@ -120,8 +103,7 @@ public @interface Sql {
 	 * {@link org.springframework.util.ResourceUtils#CLASSPATH_URL_PREFIX classpath:},
 	 * {@link org.springframework.util.ResourceUtils#FILE_URL_PREFIX file:},
 	 * {@code http:}, etc.) will be loaded using the specified resource protocol.
-	 *
-	 * <h3>Default Script Detection</h3>
+	 * <h4>Default Script Detection</h4>
 	 * <p>If no SQL scripts or {@link #statements} are specified, an attempt will
 	 * be made to detect a <em>default</em> script depending on where this
 	 * annotation is declared. If a default cannot be detected, an
@@ -135,7 +117,6 @@ public @interface Sql {
 	 * {@code com.example.MyTest}, the corresponding default script is
 	 * {@code "classpath:com/example/MyTest.testMethod.sql"}.</li>
 	 * </ul>
-	 *
 	 * @see #value
 	 * @see #statements
 	 */
@@ -146,13 +127,11 @@ public @interface Sql {
 	 * <em>Inlined SQL statements</em> to execute.
 	 * <p>This attribute may be used in conjunction with or instead of
 	 * {@link #scripts}.
-	 *
-	 * <h3>Ordering</h3>
+	 * <h4>Ordering</h4>
 	 * <p>Statements declared via this attribute will be executed after
 	 * statements loaded from resource {@link #scripts}. If you wish to have
 	 * inlined statements executed before scripts, simply declare multiple
 	 * instances of {@code @Sql} on the same class or method.
-	 *
 	 * @since 4.2
 	 * @see #scripts
 	 */
@@ -171,6 +150,25 @@ public @interface Sql {
 	 * local vs. global configuration, inheritance, overrides, etc.
 	 * <p>Defaults to an empty {@link SqlConfig @SqlConfig} instance.
 	 */
-	SqlConfig config() default @SqlConfig();
+	SqlConfig config() default @SqlConfig;
+
+
+	/**
+	 * Enumeration of <em>phases</em> that dictate when SQL scripts are executed.
+	 */
+	enum ExecutionPhase {
+
+		/**
+		 * The configured SQL scripts and statements will be executed
+		 * <em>before</em> the corresponding test method.
+		 */
+		BEFORE_TEST_METHOD,
+
+		/**
+		 * The configured SQL scripts and statements will be executed
+		 * <em>after</em> the corresponding test method.
+		 */
+		AFTER_TEST_METHOD
+	}
 
 }
